@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Watch Beyblade</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            touch-action: none;
+            font-family: 'Arial', sans-serif;
+        }
+
+        #gameCanvas {
+            background: radial-gradient(circle, #3a4052, #11141c);
+            border-radius: 50%;
+            box-shadow: inset 0 0 30px #000, 0 0 15px #333;
+            width: 100vmin;
+            height: 100vmin;
+            max-width: 400px;
+            max-height: 400px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const SIZE = 400;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const CENTER = SIZE / 2;
+    const ARENA_RADIUS = SIZE / 2 - 10;
+
+    // Estados do Jogo: START, SELECT_COLOR, SELECT_SHAPE, SELECT_ICON, PLAYING, SLOWMO, ROUND_OVER
+    let gameState = 'START';
+    let wins = 0;
+    let losses = 0;
+    let roundResult = '';
+
+    let touchX = CENTER;
+    let touchY = CENTER;
+    let isTouching = false;
+
+    // Configurações do Jogador
+    const pOptions = {
+        colors: ['#0088ff', '#ff2222', '#22ff22', '#ffaa00'],
+        shapes: [0, 1, 2, 3], // 0: Círculo, 1: Hexágono, 2: Engrenagem, 3: Octógono
+        icons: ['Y', 'N', 'M', 'Z'] // Letras que viram símbolos legais no Webdings
+    };
+    
+    // Pool de ícones para os inimigos (exclui os do player)
+    const enemyIconPool = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+    let pConfig = { color: '', shape: 0, icon: '' };
+
+    // Câmera e Tempo
+    let timeScale = 1.0;
+    let camera = { x: CENTER, y: CENTER, zoom: 1.0 };
+    let particles = [];
+
+    class Particle {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            let angle = Math.random() * Math.PI * 2;
+            let speed = Math.random() * 5 + 2;
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.05 + 0.03;
+            this.color = Math.random() > 0.5 ? '#ffea00' : '#ff5500';
+        }
+        update() {
+            this.x += this.vx * timeScale;
+            this.y += this.vy * timeScale;
+            this.life -= this.decay * timeScale;
+        }
+        draw() {
+            ctx.globalAlpha = Math.max(this.life, 0);
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    // Função universal para desenhar o formato da Beyblade
+    function drawShapePath(ctx, radius, shape) {
+        ctx.beginPath();
+        if (shape === 0) { // Círculo
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        } else if (shape === 1) { // Hexágono
+            for (let i = 0; i < 6; i++) {
+                let angle = i * Math.PI / 3;
+                if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+            }
+            ctx.closePath();
+        } else if (shape === 2) { // Engrenagem
+            let teeth = 8;
+            for (let i = 0; i < teeth * 2; i++) {
+                let angle = i * Math.PI / teeth;
+                let r = (i % 2 === 0) ? radius : radius - 5;
+                if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+                else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+            }
+            ctx.closePath();
+        } else if (shape === 3) { // Octógono
+            for (let i = 0; i < 8; i++) {
+                let angle = i * Math.PI / 4;
+                if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+            }
+            ctx.closePath();
+        }
+    }
+
+    class Beyblade {
+        constructor(x, y, color, shape, icon, isPlayer, maxStamina = 100) {
+            this.x = x;
+            this.y = y;
+            this.z = 1.0;
+            this.vx = (Math.random() - 0.5) * 4;
+            this.vy = (Math.random() - 0.5) * 4;
+            this.vz = 0;
+            this.radius = 25;
+            this.mass = 1;
+            
+            this.color = color;
+            this.shape = shape;
+            this.icon = icon;
+
+            this.maxStamina = maxStamina;
+            this.stamina = maxStamina;
+            this.rotation = 0;
+            this.isPlayer = isPlayer;
+            this.isDead = false;
+        }
+
+        update() {
+            if (this.isDead) {
+                this.x += this.vx * timeScale;
+                this.y += this.vy * timeScale;
+                this.z += this.vz * timeScale;
+                this.rotation += 0.5 * timeScale;
+                return;
+            }
+
+            if (this.stamina <= 0) {
+                this.stamina = 0;
+                this.die();
+                return;
+            }
+
+            this.stamina -= 0.02 * timeScale;
+
+            if (this.isPlayer && isTouching && this.stamina > 0) {
+                let adjTouchX = camera.x + (touchX - CENTER) / camera.zoom;
+                let adjTouchY = camera.y + (touchY - CENTER) / camera.zoom;
+
+                let dx = adjTouchX - this.x;
+                let dy = adjTouchY - this.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 5) {
+                    this.vx += (dx / dist) * 0.4;
+                    this.vy += (dy / dist) * 0.4;
+                }
+            } else if (!this.isPlayer && this.stamina > 0 && !player.isDead) {
+                let dx = player.x - this.x;
+                let dy = player.y - this.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                if(dist > 0) {
+                    this.vx += (dx / dist) * 0.08;
+                    this.vy += (dy / dist) * 0.08;
+                }
+            }
+
+            this.x += this.vx * timeScale;
+            this.y += this.vy * timeScale;
+            
+            let friction = Math.pow(0.98, timeScale);
+            this.vx *= friction;
+            this.vy *= friction;
+            this.rotation += ((this.stamina / this.maxStamina) * 0.5 + 0.1) * timeScale;
+
+            let distFromCenter = Math.hypot(this.x - CENTER, this.y - CENTER);
+            if (distFromCenter + this.radius > ARENA_RADIUS) {
+                let nx = (CENTER - this.x) / distFromCenter;
+                let ny = (CENTER - this.y) / distFromCenter;
+                
+                let dotProduct = this.vx * nx + this.vy * ny;
+                this.vx -= 2 * dotProduct * nx;
+                this.vy -= 2 * dotProduct * ny;
+                
+                let overlap = (distFromCenter + this.radius) - ARENA_RADIUS;
+                this.x += nx * overlap;
+                this.y += ny * overlap;
+
+                if (this.isPlayer) {
+                    this.stamina -= 5;
+                    createSparks(this.x - nx * this.radius, this.y - ny * this.radius, 5);
+                }
+            }
+        }
+
+        die() {
+            this.isDead = true;
+            let angle = Math.atan2(this.y - CENTER, this.x - CENTER);
+            this.vx = Math.cos(angle) * 15;
+            this.vy = Math.sin(angle) * 15;
+            this.vz = 0.4;
+            createSparks(this.x, this.y, 40);
+            
+            if (this.isPlayer) {
+                losses++;
+                roundResult = 'DERROTA!';
+            } else {
+                wins++;
+                roundResult = 'VITÓRIA!';
+            }
+            gameState = 'SLOWMO';
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(this.z, this.z);
+            ctx.rotate(this.rotation);
+
+            // Borda Base
+            drawShapePath(ctx, this.radius, this.shape);
+            ctx.fillStyle = '#222';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = this.color;
+            ctx.stroke();
+
+            // Ícone central (Webdings)
+            ctx.fillStyle = this.color;
+            ctx.font = '24px Webdings, Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Desfaz a rotação só no icone para ele girar, ou deixa girar junto
+            ctx.fillText(this.icon, 0, 0);
+
+            ctx.restore();
+
+            if (!this.isDead && gameState === 'PLAYING') {
+                let healthPercent = Math.max(0, this.stamina / this.maxStamina);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + 6, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * healthPercent));
+                ctx.strokeStyle = healthPercent > 0.3 ? (this.isPlayer ? '#0f0' : '#f00') : '#ff0';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+        }
+    }
+
+    let player, enemy;
+
+    function spawnEnemy() {
+        let randomHue = Math.floor(Math.random() * 360);
+        let color = `hsl(${randomHue}, 100%, 50%)`;
+        let shape = Math.floor(Math.random() * 4);
+        let icon = enemyIconPool[Math.floor(Math.random() * enemyIconPool.length)];
+        let newStamina = 100 + (wins * 25);
+        enemy = new Beyblade(CENTER, CENTER - 100, color, shape, icon, false, newStamina);
+    }
+
+    function startGame() {
+        player = new Beyblade(CENTER, CENTER + 100, pConfig.color, pConfig.shape, pConfig.icon, true, 100);
+        spawnEnemy();
+        gameState = 'PLAYING';
+        camera = { x: CENTER, y: CENTER, zoom: 1.0 };
+        timeScale = 1.0;
+        particles = [];
+    }
+
+    function createSparks(x, y, count) {
+        for (let i = 0; i < count; i++) {
+            particles.push(new Particle(x, y));
+        }
+    }
+
+    function checkCollision(b1, b2) {
+        if (b1.isDead || b2.isDead) return;
+
+        let dx = b2.x - b1.x;
+        let dy = b2.y - b1.y;
+        let dist = Math.hypot(dx, dy);
+        let minDist = b1.radius + b2.radius;
+
+        if (dist < minDist) {
+            let nx = dx / dist;
+            let ny = dy / dist;
+
+            let dvx = b2.vx - b1.vx;
+            let dvy = b2.vy - b1.vy;
+            let velAlongNormal = dvx * nx + dvy * ny;
+
+            if (velAlongNormal > 0) return;
+
+            let restitution = 0.8;
+            let impulse = -(1 + restitution) * velAlongNormal;
+            impulse /= (1 / b1.mass + 1 / b2.mass);
+
+            let ix = impulse * nx;
+            let iy = impulse * ny;
+
+            b1.vx -= ix / b1.mass;
+            b1.vy -= iy / b1.mass;
+            b2.vx += ix / b2.mass;
+            b2.vy += iy / b2.mass;
+
+            let cx = b1.x + nx * b1.radius;
+            let cy = b1.y + ny * b1.radius;
+            createSparks(cx, cy, 15);
+
+            let impact = Math.abs(impulse);
+            if (b1.isPlayer) b2.stamina -= impact * 2.5 + 5;
+            if (b2.isPlayer) b1.stamina -= impact * 2.5 + 5;
+
+            let overlap = minDist - dist;
+            b1.x -= (overlap / 2) * nx;
+            b1.y -= (overlap / 2) * ny;
+            b2.x += (overlap / 2) * nx;
+            b2.y += (overlap / 2) * ny;
+        }
+    }
+
+    function drawArena() {
+        ctx.beginPath();
+        ctx.arc(CENTER, CENTER, ARENA_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(CENTER, CENTER, ARENA_RADIUS - 30, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Desenha as opções em 4 quadrantes para seleção
+    function drawSelectionMenu(title, drawOptionCallback) {
+        drawArena();
+        
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(CENTER, 0); ctx.lineTo(CENTER, SIZE);
+        ctx.moveTo(0, CENTER); ctx.lineTo(SIZE, CENTER);
+        ctx.stroke();
+
+        const positions = [
+            {x: CENTER/2, y: CENTER/2},       // 0: Top-Left
+            {x: CENTER*1.5, y: CENTER/2},     // 1: Top-Right
+            {x: CENTER/2, y: CENTER*1.5},     // 2: Bottom-Left
+            {x: CENTER*1.5, y: CENTER*1.5}    // 3: Bottom-Right
+        ];
+
+        let rot = Date.now() / 800; // Rotação contínua e suave
+
+        for(let i=0; i<4; i++) {
+            ctx.save();
+            ctx.translate(positions[i].x, positions[i].y);
+            ctx.rotate(rot);
+            drawOptionCallback(i);
+            ctx.restore();
+        }
+
+        // Círculo central com o título
+        ctx.fillStyle = 'rgba(0,0,0,0.9)';
+        ctx.beginPath();
+        ctx.arc(CENTER, CENTER, 45, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Quebra de linha simples no título
+        let lines = title.split('\n');
+        for(let i=0; i<lines.length; i++){
+            ctx.fillText(lines[i], CENTER, CENTER - 6 + (i*14));
+        }
+    }
+
+    function gameLoop() {
+        ctx.clearRect(0, 0, SIZE, SIZE);
+
+        if (gameState === 'START') {
+            drawArena();
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('WATCH BEYBLADE', CENTER, CENTER - 20);
+            ctx.font = '16px Arial';
+            ctx.fillText('Toque para iniciar', CENTER, CENTER + 20);
+        } 
+        else if (gameState === 'SELECT_COLOR') {
+            drawSelectionMenu('Escolha\na Cor', (i) => {
+                ctx.beginPath();
+                ctx.arc(0, 0, 30, 0, Math.PI*2);
+                ctx.fillStyle = pOptions.colors[i];
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+        }
+        else if (gameState === 'SELECT_SHAPE') {
+            drawSelectionMenu('Escolha\no Formato', (i) => {
+                drawShapePath(ctx, 30, pOptions.shapes[i]);
+                ctx.fillStyle = '#222';
+                ctx.fill();
+                ctx.strokeStyle = pConfig.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+        }
+        else if (gameState === 'SELECT_ICON') {
+            drawSelectionMenu('Escolha\no Ícone', (i) => {
+                drawShapePath(ctx, 30, pConfig.shape);
+                ctx.fillStyle = '#222';
+                ctx.fill();
+                ctx.strokeStyle = pConfig.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = pConfig.color;
+                ctx.font = '24px Webdings, Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // Faz a letra girar ao contrário para ficar reta na leitura, ou deixa acompanhando
+                ctx.rotate(-Date.now() / 800); 
+                ctx.fillText(pOptions.icons[i], 0, 0);
+            });
+        }
+        else {
+            // Lógica do jogo, câmera e slowmo
+            if (gameState === 'SLOWMO') {
+                timeScale = 0.15;
+                let deadTarget = player.isDead ? player : enemy;
+                camera.x += (deadTarget.x - camera.x) * 0.1;
+                camera.y += (deadTarget.y - camera.y) * 0.1;
+                camera.zoom += (2.2 - camera.zoom) * 0.05;
+
+                if (deadTarget.z > 5 || deadTarget.x < -200 || deadTarget.x > SIZE + 200 || deadTarget.y < -200 || deadTarget.y > SIZE + 200) {
+                    gameState = 'ROUND_OVER';
+                }
+            } else if (gameState === 'PLAYING') {
+                timeScale = 1.0;
+                camera.x += (CENTER - camera.x) * 0.1;
+                camera.y += (CENTER - camera.y) * 0.1;
+                camera.zoom += (1.0 - camera.zoom) * 0.1;
+            }
+
+            ctx.save();
+            ctx.translate(CENTER, CENTER);
+            ctx.scale(camera.zoom, camera.zoom);
+            ctx.translate(-camera.x, -camera.y);
+
+            drawArena();
+
+            if (gameState !== 'ROUND_OVER') {
+                player.update();
+                enemy.update();
+                checkCollision(player, enemy);
+            }
+
+            player.draw();
+            enemy.draw();
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                if (gameState !== 'ROUND_OVER') particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            ctx.restore();
+
+            // Placar
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.roundRect(CENTER - 50, 20, 100, 30, 10);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(`${wins} : ${losses}`, CENTER, 42);
+
+            // Fim de round
+            if (gameState === 'ROUND_OVER') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, SIZE, SIZE);
+
+                ctx.fillStyle = roundResult === 'VITÓRIA!' ? '#0f0' : '#f00';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 30px Arial';
+                ctx.fillText(roundResult, CENTER, CENTER - 10);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '16px Arial';
+                ctx.fillText('Toque para continuar', CENTER, CENTER + 30);
+            }
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Calcula qual quadrante foi tocado (0: TL, 1: TR, 2: BL, 3: BR)
+    function getQuadrant(x, y) {
+        let quad = 0;
+        if (x > CENTER) quad += 1;
+        if (y > CENTER) quad += 2;
+        return quad;
+    }
+
+    function handleInput(e) {
+        e.preventDefault();
+        let rect = canvas.getBoundingClientRect();
+        let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        let scaleX = canvas.width / rect.width;
+        let scaleY = canvas.height / rect.height;
+
+        touchX = (clientX - rect.left) * scaleX;
+        touchY = (clientY - rect.top) * scaleY;
+
+        if (e.type === 'touchstart' || e.type === 'mousedown') {
+            if (gameState === 'START') {
+                gameState = 'SELECT_COLOR';
+            } 
+            else if (gameState === 'SELECT_COLOR') {
+                pConfig.color = pOptions.colors[getQuadrant(touchX, touchY)];
+                gameState = 'SELECT_SHAPE';
+            }
+            else if (gameState === 'SELECT_SHAPE') {
+                pConfig.shape = pOptions.shapes[getQuadrant(touchX, touchY)];
+                gameState = 'SELECT_ICON';
+            }
+            else if (gameState === 'SELECT_ICON') {
+                pConfig.icon = pOptions.icons[getQuadrant(touchX, touchY)];
+                startGame();
+            }
+            else if (gameState === 'ROUND_OVER') {
+                player = new Beyblade(CENTER, CENTER + 100, pConfig.color, pConfig.shape, pConfig.icon, true, 100);
+                spawnEnemy();
+                gameState = 'PLAYING';
+                camera = { x: CENTER, y: CENTER, zoom: 1.0 };
+                particles = [];
+            }
+        }
+        
+        if (gameState === 'PLAYING') {
+            isTouching = true;
+        }
+    }
+
+    function endInput(e) {
+        e.preventDefault();
+        isTouching = false;
+    }
+
+    canvas.addEventListener('touchstart', handleInput, {passive: false});
+    canvas.addEventListener('touchmove', handleInput, {passive: false});
+    canvas.addEventListener('touchend', endInput, {passive: false});
+
+    canvas.addEventListener('mousedown', handleInput);
+    canvas.addEventListener('mousemove', (e) => { if (isTouching) handleInput(e); });
+    canvas.addEventListener('mouseup', endInput);
+
+    gameLoop();
+</script>
+</body>
+</html>
