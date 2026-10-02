@@ -18,7 +18,6 @@
             background-color: #000;
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            /* Watch specific trick to prevent bounce */
             overscroll-behavior: none; 
         }
         canvas {
@@ -36,7 +35,7 @@
             justify-content: space-between;
         }
         
-        /* ADAPTAÇÃO PARA TELA REDONDA: Padding no Topo */
+        /* ADAPTAÇÃO PARA TELA REDONDA: Padding no Topo e HUD alinhado */
         .hud-top {
             padding: 15% 10% 5% 10%; 
             display: flex;
@@ -49,8 +48,9 @@
             display: flex;
             justify-content: space-between;
             width: 100%;
+            max-width: 250px; /* ALINHAMENTO COM A BARRA DE VIDA PRA NÃO CORTAR */
             color: #00ffcc;
-            font-size: 0.9rem; /* Fonte menor */
+            font-size: 0.9rem;
             font-weight: bold;
             text-shadow: 0 0 5px #00ffcc;
         }
@@ -147,7 +147,6 @@
             color: #000;
         }
 
-        /* ADAPTAÇÃO PARA RELÓGIO: Cartas empilhadas e com Scroll */
         .upgrade-container {
             display: flex;
             flex-direction: column;
@@ -159,7 +158,6 @@
             overflow-y: auto;
             padding: 0 10%;
         }
-        /* Ocultando a scrollbar pra ficar limpo no relógio */
         .upgrade-container::-webkit-scrollbar { display: none; }
         
         .card {
@@ -225,44 +223,37 @@
                 <span id="scoreDisplay">Score: 0</span>
                 <span id="timeDisplay">00:00</span>
             </div>
-            <!-- Base Health -->
             <div class="health-bar-container">
                 <div id="healthFill" class="health-bar-fill"></div>
                 <div id="healthText" class="health-text">Dome Integrity: 100%</div>
             </div>
-            <!-- Boss Health -->
             <div id="bossHealthContainer" class="health-bar-container" style="display: none; border-color: #ff0000; margin-top: 5px;">
                 <div id="bossHealthFill" class="health-bar-fill" style="background: #ff0000; box-shadow: 0 0 10px #ff0000;"></div>
                 <div id="bossHealthText" class="health-text" style="text-shadow: 1px 1px 2px #000, 0 0 5px #ff0000;">SUPER ASTEROIDE: 100%</div>
             </div>
-            <!-- Inventory -->
             <div class="inventory" id="inventory"></div>
         </div>
     </div>
 
-    <!-- Start Screen -->
     <div id="startScreen" class="overlay">
         <h1>DEFENDER</h1>
         <p>Arraste para mover.<br>Proteja o núcleo!</p>
         <button class="btn" onclick="startGame()">Iniciar</button>
     </div>
 
-    <!-- Game Over Screen -->
     <div id="gameOverScreen" class="overlay hidden">
         <h1 style="color: #ff3300;">DESTRUÍDO</h1>
         <h2 id="finalScore" style="margin-bottom: 20px; font-size: 1.2rem;">Score: 0</h2>
         <button class="btn" onclick="resetGame()">Tentar Novamente</button>
     </div>
 
-    <!-- Victory Screen -->
     <div id="victoryScreen" class="overlay hidden">
-        <h1 style="color: #ffaa00; text-shadow: 0 0 20px #ffaa00;">VITÓRIA!</h1>
+        <h1 style="color: #00ffcc; text-shadow: 0 0 20px #00ffcc;">VITÓRIA!</h1>
         <p>Ameaça Aniquilada.</p>
         <h2 id="victoryScore" style="margin-bottom: 20px; font-size: 1.2rem;">Score: 0</h2>
         <button class="btn" onclick="resetGame()">Jogar Novamente</button>
     </div>
 
-    <!-- Level Up Screen -->
     <div id="levelUpScreen" class="overlay hidden">
         <h1 style="color: #ffaa00; font-size: 1.5rem;">LEVEL UP!</h1>
         <div class="upgrade-container" id="cardsContainer"></div>
@@ -275,7 +266,6 @@
         let width, height;
         let globalScale = 1.0; 
         
-        // LIMITADORES CIRCULARES PARA RELÓGIO
         let safeMargin = 0; 
         let towerOffset = 0;
 
@@ -300,29 +290,21 @@
         let domeMaxHp = 100;
         let domeHp = domeMaxHp;
         
-        // Spawn Controllers
         let waveTimer = 0;
         let enemiesPerWave = 1;
         let waveSpawnTimer = 0;
         let waveEnemiesToSpawn = 0;
         let bossSpawned = false;
 
-        let upgradeLevels = {
-            mainGun: 1, 
-            overdrive: 0, 
-            droneTurret: 0, 
-            laserTurret: 0, 
-            rocketLauncher: 0, 
-            barrier: 0 
-        };
+        let upgradeLevels = { mainGun: 1, overdrive: 0, droneTurret: 0, laserTurret: 0, rocketLauncher: 0, barrier: 0 };
 
         const allUpgrades = [
             { id: 'mainGun', title: 'Twin Blasters', desc: '+1 tiro simultâneo.', max: 3 },
             { id: 'overdrive', title: 'Charge State', desc: 'Dobra cadência a cada nível.', max: 3 },
-            { id: 'droneTurret', title: 'Hunter Drones', desc: 'Naves de patrulha velozes.', max: 3 },
-            { id: 'laserTurret', title: 'Orbital Laser', desc: '+1 alvo contínuo/nível.', max: 3 },
-            { id: 'rocketLauncher', title: 'Rocket Battery', desc: 'Bateria de Mísseis. Lv3: Área', max: 3 },
-            { id: 'barrier', title: 'Stasis Field', desc: 'Campo de lentidão. 1.5x Área', max: 3 }
+            { id: 'droneTurret', title: 'Hunter Drones', desc: 'Naves de patrulha.', max: 3 },
+            { id: 'laserTurret', title: 'Orbital Laser', desc: '+1 alvo simultâneo/nível.', max: 3 },
+            { id: 'rocketLauncher', title: 'Rocket Battery', desc: 'Mísseis. Lv3: Área', max: 3 },
+            { id: 'barrier', title: 'Stasis Field', desc: 'Campo de lentidão.', max: 3 }
         ];
 
         let turretSystem = {
@@ -338,19 +320,18 @@
             height = canvas.height = window.innerHeight;
             targetX = width / 2;
             
-            // Ajuste para Watch e Mobile (telas redondas ou verticais)
+            // ZOOM +15%: Multiplicando o fator base (0.5) por 1.15 = 0.575
             if (height > width || width < 600) {
-                globalScale = 0.5;
+                globalScale = 0.575;
             } else {
-                globalScale = 1.0;
+                globalScale = 1.15;
             }
 
-            // MÁGICA DO RELÓGIO: 18% de margem mantém o jogo dentro de uma coluna jogável perfeita, 
-            // evitando que as bordas circulares do Galaxy Watch ocultem o herói ou os inimigos.
             safeMargin = width * 0.18; 
-            towerOffset = width * 0.22; // Torres posicionadas a 22% do centro (visíveis)
+            towerOffset = width * 0.14; // Torres mais próximas do centro para não cortar na tela redonda
 
-            if (player) player.y = height - (height * 0.15) - (player.size/2);
+            // Garante que o jogador fique DENTRO do domo, apoiado na base de metal
+            if (player) player.y = height - (20 * 1.25 * globalScale) - (player.size/2);
             
             stars = [];
             for(let i = 0; i < 80; i++) {
@@ -359,7 +340,6 @@
         }
         window.addEventListener('resize', resize);
 
-        // Touch Control - Adaptado
         window.addEventListener('touchmove', (e) => { 
             if (isPlaying && !isPaused && !isVictory) {
                 targetX = e.touches[0].clientX; 
@@ -457,7 +437,6 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rot);
-                
                 ctx.fillStyle = '#111';
                 ctx.strokeStyle = '#ff3300';
                 ctx.lineWidth = 2 * globalScale;
@@ -475,7 +454,6 @@
                 
                 ctx.fillStyle = '#300';
                 ctx.beginPath(); ctx.arc(0, 0, this.radius * 0.3, 0, Math.PI*2); ctx.fill();
-                
                 ctx.restore();
             }
         }
@@ -484,7 +462,8 @@
             constructor() {
                 this.size = 20 * 1.25 * globalScale; 
                 this.x = width / 2;
-                this.y = height - (height * 0.15) - (this.size/2); 
+                // Pousado sobre a base de metal
+                this.y = height - (20 * 1.25 * globalScale) - (this.size/2); 
                 this.speed = 8 * globalScale;
                 this.shootTimer = 0;
             }
@@ -496,12 +475,10 @@
                     this.x = targetX;
                 }
                 
-                // MÁGICA DO RELÓGIO: Prende o Herói na área jogável (Margem de segurança)
                 if (this.x < safeMargin + this.size) this.x = safeMargin + this.size;
                 if (this.x > width - safeMargin - this.size) this.x = width - safeMargin - this.size;
 
-                // Cadência dividida pela metade a cada nível do Overdrive (0 = 800ms, 1 = 400ms, 2 = 200ms)
-                let baseShootTime = 800 / Math.pow(2, upgradeLevels.overdrive); 
+                let baseShootTime = 1600 / Math.pow(2, upgradeLevels.overdrive); 
 
                 this.shootTimer += dt;
                 if (this.shootTimer >= baseShootTime) {
@@ -521,26 +498,20 @@
             draw() {
                 ctx.save();
                 ctx.translate(this.x, this.y);
-                
                 ctx.shadowBlur = 10 * globalScale;
                 ctx.shadowColor = '#00ffcc';
-
                 ctx.fillStyle = '#ccc';
                 ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
-                
                 ctx.fillStyle = '#00ffcc';
                 ctx.beginPath();
                 ctx.arc(0, -this.size/1.5, this.size/2.5, 0, Math.PI * 2);
                 ctx.fill();
-
                 ctx.fillStyle = '#666';
                 ctx.fillRect(-this.size, -this.size/4, this.size/2, this.size/1.2);
                 ctx.fillRect(this.size/2, -this.size/4, this.size/2, this.size/1.2);
-                
                 ctx.fillStyle = '#00aaff';
                 ctx.fillRect(-this.size + 2*globalScale, -this.size/1.2, this.size/3, this.size/2);
                 ctx.fillRect(this.size/2 + 2*globalScale, -this.size/1.2, this.size/3, this.size/2);
-
                 ctx.restore();
             }
         }
@@ -549,7 +520,6 @@
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                
                 this.speed = 10 * 1.25 * globalScale;
                 this.projWidth = 3 * 1.25 * globalScale; 
                 this.projLength = 6 * 1.25 * globalScale; 
@@ -570,7 +540,7 @@
             }
             update() {
                 this.y += this.vy;
-                if (this.y < -50) this.markedForDeletion = true;
+                if (this.y < -50) this.markedForDeletion = true; 
             }
             draw() {
                 ctx.save();
@@ -583,9 +553,8 @@
 
         class Missile {
             constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.speed = 0.5 * 1.25 * globalScale; 
+                this.x = x; this.y = y;
+                this.speed = 0.25 * 1.25 * globalScale; 
                 this.size = 4 * 1.25 * globalScale; 
                 this.angle = -Math.PI / 2;
                 this.target = null;
@@ -612,7 +581,6 @@
                 if (!this.target || this.target.markedForDeletion) {
                     this.findTarget();
                 }
-
                 if (this.target) {
                     let dx = this.target.x - this.x;
                     let dy = this.target.y - this.y;
@@ -624,14 +592,12 @@
                     
                     this.angle += angleDiff * 0.08; 
                 }
-                
                 this.x += Math.cos(this.angle) * this.speed;
                 this.y += Math.sin(this.angle) * this.speed;
 
                 if (Math.random() < 0.3) {
                     particles.push(new Particle(this.x - Math.cos(this.angle)*10, this.y - Math.sin(this.angle)*10, '#ff0000', 2, 0.5));
                 }
-
                 if (this.y < -100 || this.y > height + 100 || this.x < -100 || this.x > width + 100) {
                     this.markedForDeletion = true;
                 }
@@ -654,26 +620,24 @@
             constructor(x, y) {
                 this.x = x; this.y = y;
                 this.baseX = x; this.baseY = y;
-                this.speed = 1.9 * 1.25 * globalScale; // Drones 50% mais velozes
+                this.speed = 1.425 * 1.25 * globalScale; 
                 this.size = 12 * 1.25 * globalScale; 
                 this.target = null;
                 this.shootTimer = 0;
             }
             update(dt) {
-                if (this.target && (this.target.markedForDeletion || this.target.y < height * 0.1)) {
+                if (this.target && (this.target.markedForDeletion || this.target.y < height * 0.3)) {
                     this.target = null;
                 }
-
                 if (!this.target && !isVictory) {
                     let targetedByOthers = drones.map(d => d.target).filter(t => t != null);
-                    let validEnemies = enemies.filter(e => e.y >= height * 0.1 && !targetedByOthers.includes(e));
+                    let validEnemies = enemies.filter(e => e.y >= height * 0.3 && !targetedByOthers.includes(e));
                     
                     if (validEnemies.length > 0) {
                         validEnemies.sort((a,b) => Math.hypot(a.x - this.x, a.y - this.y) - Math.hypot(b.x - this.x, b.y - this.y));
                         this.target = validEnemies[0];
                     }
                 }
-
                 let destX = this.baseX;
                 let destY = this.baseY;
 
@@ -712,7 +676,6 @@
                 ctx.lineTo(0, this.size/4);
                 ctx.lineTo(-this.size/1.5, this.size/2);
                 ctx.fill();
-                
                 ctx.fillStyle = '#ff5500';
                 ctx.beginPath();
                 ctx.arc(0, this.size/2, this.size/4, 0, Math.PI*2);
@@ -731,14 +694,12 @@
                 let sizeMod = sizeMods[level];
                 this.maxHp = hpList[level];
                 this.color = borders[level];
-                
                 this.radius = (15 * 1.25 * globalScale) * sizeMod; 
                 
-                // MÁGICA DO RELÓGIO: Força o Spawn X dentro do Safe Margin
                 this.x = random(this.radius + safeMargin, width - this.radius - safeMargin);
                 this.y = -this.radius * 2;
                 
-                let baseSpd = (0.28 / sizeMod); 
+                let baseSpd = 0.236; 
                 this.isBoss = false;
                 
                 if (type === 'boss') {
@@ -748,7 +709,7 @@
                     this.isBoss = true;
                     baseSpd = 0.05; 
                     this.color = '#ff0000'; 
-                    this.x = width / 2; // Boss no centro
+                    this.x = width / 2; 
                     this.y = -this.radius - 50; 
                     this.bossTimer = 0;
 
@@ -762,7 +723,7 @@
                     }
                 }
                 
-                this.baseSpeed = baseSpd * globalScale * 0.75; // -25% de redução final de velocidade 
+                this.baseSpeed = baseSpd * globalScale; 
                 this.speed = this.baseSpeed;
                 this.hp = this.maxHp;
                 
@@ -781,7 +742,6 @@
             }
             takeDamage(dmg) {
                 this.hp -= dmg;
-                
                 if (this.isBoss) {
                     let bossHpPct = Math.max(0, this.hp / this.maxHp);
                     let bossFill = document.getElementById('bossHealthFill');
@@ -825,9 +785,9 @@
                     this.bossTimer += dt;
                     if (this.bossTimer >= 1000) {
                         this.bossTimer -= 1000;
-                        this.baseSpeed *= 1.01; // Boss acelera 1% a cada segundo
+                        this.baseSpeed *= 1.01; 
                     }
-                    if (Math.random() < 0.5) { // Boss Fogo visual
+                    if (Math.random() < 0.5) { 
                         particles.push(new Particle(
                             this.x + random(-this.radius*0.8, this.radius*0.8), 
                             this.y + random(-this.radius*0.8, this.radius*0.8), 
@@ -844,7 +804,6 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rot);
-                
                 ctx.fillStyle = '#222';
                 ctx.strokeStyle = this.color;
                 ctx.lineWidth = (this.isBoss ? 4 : 2) * globalScale;
@@ -875,13 +834,11 @@
                     ctx.fillStyle = '#00ff00';
                     ctx.fillRect(-this.radius/2, -this.radius - 8*globalScale, this.radius * (this.hp/this.maxHp), 3*globalScale);
                 }
-
                 ctx.restore();
             }
         }
 
         function drawEnvironment() {
-            // Sol ao fundo
             let sunGrd = ctx.createRadialGradient(width/2, 0, 0, width/2, 0, height*0.5);
             sunGrd.addColorStop(0, 'rgba(255, 100, 0, 0.2)');
             sunGrd.addColorStop(0.5, 'rgba(255, 50, 0, 0.05)');
@@ -889,25 +846,14 @@
             ctx.fillStyle = sunGrd;
             ctx.fillRect(0, 0, width, height);
 
-            let baseY = height - (height * 0.15); // Base começa nos 15% finais
-
-            ctx.fillStyle = '#0a0a15';
-            ctx.beginPath();
-            ctx.moveTo(0, height);
-            ctx.lineTo(0, baseY);
-            ctx.lineTo(width, baseY);
-            ctx.lineTo(width, height);
-            ctx.fill();
-
-            // Nova Base Futurista Metálica (Baixa e Larga)
-            let baseW = width * 0.5; // Ocupa metade da largura visível
+            let baseY = height - (height * 0.15); 
+            let baseW = width * 0.5; 
             let baseH = 20 * 1.25 * globalScale; 
             let baseTop = height - baseH;
 
             ctx.fillStyle = '#1e1e2d';
             ctx.strokeStyle = '#4a4a62';
             ctx.lineWidth = 2 * globalScale;
-
             ctx.beginPath();
             ctx.moveTo(width/2 - baseW/2, height);
             ctx.lineTo(width/2 - baseW*0.35, baseTop);
@@ -917,11 +863,9 @@
             ctx.fill();
             ctx.stroke();
 
-            // Janelas brilhantes horizontais
             ctx.fillStyle = '#00ffcc';
             ctx.shadowBlur = 5 * globalScale;
             ctx.shadowColor = '#00ffcc';
-            
             for (let wy = baseTop + 5*globalScale; wy < height - 5*globalScale; wy += 12*globalScale) {
                 let rowW = baseW * 0.4;
                 for (let wx = width/2 - rowW/2 + 5*globalScale; wx <= width/2 + rowW/2 - 15*globalScale; wx += 20*globalScale) {
@@ -930,7 +874,7 @@
             }
             ctx.shadowBlur = 0;
 
-            // Suportes das Torres (MÁGICA DO RELÓGIO: Usando offset flexível)
+            // Torres fixadas com o novo towerOffset (mais centralizadas)
             ctx.fillStyle = '#333';
             ctx.beginPath(); ctx.arc(width/2 - towerOffset, height, 20*1.25*globalScale, Math.PI, 0); ctx.fill();
             ctx.beginPath(); ctx.arc(width/2 + towerOffset, height, 20*1.25*globalScale, Math.PI, 0); ctx.fill();
@@ -950,14 +894,13 @@
                 ctx.translate(width/2 + towerOffset, height - 10*globalScale);
                 ctx.fillStyle = '#555';
                 ctx.beginPath(); ctx.arc(0, -12*1.25*globalScale, 12*1.25*globalScale, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#00ff00'; // Laser Turret Verde
+                ctx.fillStyle = '#00ff00';
                 ctx.beginPath(); ctx.arc(0, -12*1.25*globalScale, 4*1.25*globalScale, 0, Math.PI*2); ctx.fill();
                 ctx.restore();
             }
 
-            // Domo clássico Azul começando DO CHÃO (height)
             let domeRadiusY = height * 0.15; 
-            let domeRadiusX = (width/2) - (safeMargin * 0.5); // Limita o Domo para não vazar nas laterais redondas
+            let domeRadiusX = (width/2) - (safeMargin * 0.5); 
             ctx.save();
             ctx.beginPath();
             ctx.ellipse(width/2, height, domeRadiusX, domeRadiusY, 0, Math.PI, 0); 
@@ -1010,7 +953,7 @@
 
                         ts.targets.forEach(target => {
                             target.laserDmgTimer += dt;
-                            if (target.laserDmgTimer >= 200) { // 1 dano a cada 0.2s
+                            if (target.laserDmgTimer >= 200) { 
                                 target.takeDamage(1); 
                                 target.laserDmgTimer = 0;
                             }
@@ -1019,7 +962,7 @@
                             ctx.beginPath();
                             ctx.moveTo(width/2 + towerOffset, height - 10*globalScale);
                             ctx.lineTo(target.x, target.y);
-                            ctx.strokeStyle = '#00ff00'; // Laser puramente Verde
+                            ctx.strokeStyle = '#00ff00'; 
                             ctx.lineWidth = random(4, 8) * globalScale;
                             ctx.stroke();
                             ctx.restore();
@@ -1133,7 +1076,7 @@
             enemies.forEach(e => {
                 if (!e.markedForDeletion) {
                     let dy = (e.y - domeCY) / domeRadiusY;
-                    let dx = (e.x - (width/2)) / domeRadiusX; // Matemático preciso para o novo domo estreito
+                    let dx = (e.x - (width/2)) / domeRadiusX; 
                     
                     if ( (dx*dx + dy*dy) <= 1 && e.y < domeCY ) {
                         e.markedForDeletion = true;
@@ -1161,7 +1104,6 @@
                 waveTimer = 0;
             }
 
-            // Metade da quantidade de inimigos (spawn a cada 2s ao invés de 1s)
             if (waveSpawnTimer >= 2000) { 
                 waveSpawnTimer -= 2000;
                 waveEnemiesToSpawn = enemiesPerWave;
@@ -1174,7 +1116,7 @@
                 }
             }
 
-            if (gameTime >= 285000 && !bossSpawned) { // 4 minutos e 45s
+            if (gameTime >= 285000 && !bossSpawned) { 
                 bossSpawned = true;
                 let warn = document.getElementById('warningText');
                 warn.style.display = 'block';
@@ -1188,11 +1130,7 @@
 
         function triggerVictory(bx, by, bradius) {
             isVictory = true;
-            
-            enemies = [];
-            projectiles = [];
-            missiles = [];
-            
+            enemies = []; projectiles = []; missiles = [];
             triggerFlash();
             
             for (let i = 0; i < 300; i++) {
@@ -1204,7 +1142,6 @@
                     random(5, 15) * globalScale
                 ));
             }
-            
             for (let i = 0; i < 25; i++) {
                 debris.push(new Debris(bx, by, bradius * random(0.1, 0.3)));
             }
@@ -1238,7 +1175,7 @@
 
         function triggerLevelUp() {
             let available = allUpgrades.filter(u => upgradeLevels[u.id] < u.max);
-            if (available.length === 0) return; // Se tudo estiver no maximo, não pausa mais o jogo
+            if (available.length === 0) return; 
 
             isPaused = true;
             triggerFlash();
@@ -1264,7 +1201,6 @@
 
         function applyUpgrade(id) {
             upgradeLevels[id]++;
-            
             if (id === 'droneTurret') {
                 let dCount = upgradeLevels.droneTurret === 1 ? 1 : (upgradeLevels.droneTurret === 2 ? 2 : 4);
                 drones = [];
@@ -1274,9 +1210,7 @@
                     drones.push(new Drone(width/2 + offset, height - (height*0.15) - (40*globalScale)));
                 }
             }
-            
-            updateUI();
-            updateInventoryUI();
+            updateUI(); updateInventoryUI();
         }
 
         let nextLevelTime = 15000;
@@ -1296,7 +1230,6 @@
 
             if (!isVictory) {
                 gameTime += dt;
-                
                 let secs = Math.floor(gameTime / 1000);
                 let mins = Math.floor(secs / 60);
                 secs = secs % 60;
@@ -1324,23 +1257,15 @@
                 spawnEnemies(dt);
                 checkCollisions();
             }
-            
             player.draw();
 
             [...projectiles, ...missiles, ...enemies, ...particles].forEach(obj => {
-                obj.update(dt);
-                obj.draw();
+                obj.update(dt); obj.draw();
             });
-
-            debris.forEach(d => {
-                d.update();
-                d.draw();
-            });
-
+            debris.forEach(d => { d.update(); d.draw(); });
             drones.forEach(d => {
                 if (isVictory) d.target = null; 
-                d.update(dt);
-                d.draw();
+                d.update(dt); d.draw();
             });
 
             projectiles = projectiles.filter(p => !p.markedForDeletion);
@@ -1363,14 +1288,8 @@
             player = new Player();
             
             domeHp = domeMaxHp;
-            score = 0;
-            gameTime = 0;
-            lastTime = 0;
-            nextLevelTime = 15000;
-            waveTimer = 0;
-            waveSpawnTimer = 0;
-            enemiesPerWave = 1;
-            waveEnemiesToSpawn = 0;
+            score = 0; gameTime = 0; lastTime = 0; nextLevelTime = 15000;
+            waveTimer = 0; waveSpawnTimer = 0; enemiesPerWave = 1; waveEnemiesToSpawn = 0;
             bossSpawned = false;
             
             projectiles = []; enemies = []; particles = []; drones = []; missiles = []; debris = [];
@@ -1382,12 +1301,9 @@
                 rocket: { timer: 0, sequenceQueue: 0, sequenceTimer: 0 }
             };
             
-            updateUI();
-            updateInventoryUI();
+            updateUI(); updateInventoryUI();
             
-            isPlaying = true;
-            isPaused = false;
-            isVictory = false;
+            isPlaying = true; isPaused = false; isVictory = false;
             requestAnimationFrame(update);
         }
 
@@ -1399,10 +1315,7 @@
             go.classList.remove('hidden');
             document.getElementById('finalScore').innerText = `Score: ${score}`;
         }
-
-        function resetGame() {
-            startGame();
-        }
+        function resetGame() { startGame(); }
 
         resize();
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
