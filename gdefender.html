@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Galactic Defender</title>
+    <title>Galactic Defender - WatchOS Edition</title>
     <style>
         * {
             box-sizing: border-box;
@@ -18,6 +18,8 @@
             background-color: #000;
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* Watch specific trick to prevent bounce */
+            overscroll-behavior: none; 
         }
         canvas {
             display: block;
@@ -33,30 +35,32 @@
             flex-direction: column;
             justify-content: space-between;
         }
+        
+        /* ADAPTAÇÃO PARA TELA REDONDA: Padding no Topo */
         .hud-top {
-            padding: 10px 20px;
+            padding: 15% 10% 5% 10%; 
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            gap: 5px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9) 10%, rgba(0,0,0,0.6) 50%, transparent);
         }
         .hud-stats {
             display: flex;
             justify-content: space-between;
             width: 100%;
             color: #00ffcc;
-            font-size: 1.2rem;
+            font-size: 0.9rem; /* Fonte menor */
             font-weight: bold;
             text-shadow: 0 0 5px #00ffcc;
         }
         .health-bar-container {
             width: 100%;
-            max-width: 400px;
+            max-width: 250px;
             background: rgba(255,255,255,0.1);
             border: 1px solid #00ffcc;
-            border-radius: 10px;
-            height: 20px;
+            border-radius: 8px;
+            height: 14px;
             position: relative;
             overflow: hidden;
         }
@@ -71,18 +75,19 @@
             position: absolute;
             width: 100%;
             text-align: center;
-            line-height: 20px;
+            line-height: 14px;
             color: #fff;
-            font-size: 0.8rem;
+            font-size: 0.65rem;
             text-shadow: 1px 1px 2px #000;
+            font-weight: bold;
         }
         
         .inventory {
             display: flex;
-            gap: 10px;
+            gap: 3px;
             flex-wrap: wrap;
             justify-content: center;
-            margin-top: 5px;
+            margin-top: 3px;
         }
         .inv-item {
             display: flex;
@@ -90,10 +95,10 @@
             background: rgba(0, 0, 0, 0.6);
             border: 1px solid #444;
             border-radius: 5px;
-            padding: 2px 6px;
-            font-size: 0.8rem;
+            padding: 2px 4px;
+            font-size: 0.65rem;
             color: #fff;
-            gap: 5px;
+            gap: 3px;
         }
         .inv-item span {
             color: #ffaa00;
@@ -113,62 +118,70 @@
             z-index: 10;
         }
         .overlay h1 {
-            font-size: 3rem;
+            font-size: 1.8rem;
             color: #00ffcc;
             text-shadow: 0 0 15px #00ffcc;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             text-align: center;
         }
+        .overlay p {
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 75%;
+        }
         .btn {
-            padding: 15px 40px;
-            font-size: 1.5rem;
-            background: transparent;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: rgba(0, 255, 204, 0.1);
             color: #00ffcc;
             border: 2px solid #00ffcc;
-            border-radius: 30px;
+            border-radius: 20px;
             cursor: pointer;
             text-transform: uppercase;
             font-weight: bold;
             transition: 0.3s;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
         }
-        .btn:hover {
+        .btn:active {
             background: #00ffcc;
             color: #000;
-            box-shadow: 0 0 20px #00ffcc;
         }
 
+        /* ADAPTAÇÃO PARA RELÓGIO: Cartas empilhadas e com Scroll */
         .upgrade-container {
             display: flex;
-            gap: 15px;
-            margin-top: 30px;
-            justify-content: center;
-            flex-wrap: wrap;
-            max-width: 90%;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 15px;
+            align-items: center;
+            width: 100%;
+            max-height: 50vh;
+            overflow-y: auto;
+            padding: 0 10%;
         }
+        /* Ocultando a scrollbar pra ficar limpo no relógio */
+        .upgrade-container::-webkit-scrollbar { display: none; }
+        
         .card {
             background: linear-gradient(145deg, #1a1a2e, #16213e);
             border: 2px solid #0f3460;
-            border-radius: 15px;
-            padding: 20px;
-            width: 200px;
+            border-radius: 12px;
+            padding: 12px;
+            width: 90%;
             cursor: pointer;
-            transition: 0.3s;
             text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
-        .card:hover {
-            transform: translateY(-10px);
+        .card:active {
             border-color: #00ffcc;
-            box-shadow: 0 10px 25px rgba(0,255,204,0.3);
+            background: #1a1a2e;
         }
         .card h3 {
             color: #e94560;
-            margin-bottom: 10px;
-            font-size: 1.2rem;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
         }
         .card p {
-            font-size: 0.9rem;
+            font-size: 0.7rem;
             color: #ccc;
         }
         .hidden { display: none !important; }
@@ -184,11 +197,11 @@
         }
         .warning-text {
             position: absolute;
-            top: 30%;
+            top: 40%;
             width: 100%;
             text-align: center;
             color: #ff0000;
-            font-size: 4rem;
+            font-size: 2.5rem;
             font-weight: bold;
             text-shadow: 0 0 20px #ff0000;
             animation: blink 1s infinite;
@@ -229,42 +242,43 @@
 
     <!-- Start Screen -->
     <div id="startScreen" class="overlay">
-        <h1>GALACTIC DEFENDER</h1>
-        <p style="margin-bottom: 30px; text-align: center; max-width: 80%;">
-            Proteja a base terrestre. Arraste para mover.<br><br>
-            Derrote as ondas inimigas e construa suas defesas!
-        </p>
-        <button class="btn" onclick="startGame()">Start Game</button>
+        <h1>DEFENDER</h1>
+        <p>Arraste para mover.<br>Proteja o núcleo!</p>
+        <button class="btn" onclick="startGame()">Iniciar</button>
     </div>
 
     <!-- Game Over Screen -->
     <div id="gameOverScreen" class="overlay hidden">
-        <h1>BASE DESTROYED</h1>
-        <h2 id="finalScore" style="margin-bottom: 20px;">Score: 0</h2>
-        <button class="btn" onclick="resetGame()">Try Again</button>
+        <h1 style="color: #ff3300;">DESTRUÍDO</h1>
+        <h2 id="finalScore" style="margin-bottom: 20px; font-size: 1.2rem;">Score: 0</h2>
+        <button class="btn" onclick="resetGame()">Tentar Novamente</button>
     </div>
 
     <!-- Victory Screen -->
     <div id="victoryScreen" class="overlay hidden">
-        <h1 style="color: #ffaa00; text-shadow: 0 0 20px #ffaa00;">VICTORY!</h1>
-        <p style="margin-bottom: 20px; font-size: 1.2rem;">Ameaça Aniquilada.</p>
-        <h2 id="victoryScore" style="margin-bottom: 30px;">Score: 0</h2>
-        <button class="btn" onclick="resetGame()">Play Again</button>
+        <h1 style="color: #ffaa00; text-shadow: 0 0 20px #ffaa00;">VITÓRIA!</h1>
+        <p>Ameaça Aniquilada.</p>
+        <h2 id="victoryScore" style="margin-bottom: 20px; font-size: 1.2rem;">Score: 0</h2>
+        <button class="btn" onclick="resetGame()">Jogar Novamente</button>
     </div>
 
     <!-- Level Up Screen -->
     <div id="levelUpScreen" class="overlay hidden">
-        <h1 style="color: #ffaa00; text-shadow: 0 0 15px #ffaa00;">LEVEL UP!</h1>
-        <p>Escolha uma melhoria:</p>
+        <h1 style="color: #ffaa00; font-size: 1.5rem;">LEVEL UP!</h1>
         <div class="upgrade-container" id="cardsContainer"></div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        
         let width, height;
         let globalScale = 1.0; 
         
+        // LIMITADORES CIRCULARES PARA RELÓGIO
+        let safeMargin = 0; 
+        let towerOffset = 0;
+
         let gameLoopId;
         let isPlaying = false;
         let isPaused = false;
@@ -283,11 +297,10 @@
         let drones = [];
         let missiles = [];
 
-        // Dome / Base setup
         let domeMaxHp = 100;
         let domeHp = domeMaxHp;
         
-        // Spawner
+        // Spawn Controllers
         let waveTimer = 0;
         let enemiesPerWave = 1;
         let waveSpawnTimer = 0;
@@ -304,12 +317,12 @@
         };
 
         const allUpgrades = [
-            { id: 'mainGun', title: 'Twin Blasters', desc: 'Adiciona +1 tiro simultâneo.', max: 3 },
-            { id: 'overdrive', title: 'Charge State', desc: 'Aumenta dano, comprimento do tiro e cadência.', max: 3 },
-            { id: 'droneTurret', title: 'Hunter Drones', desc: 'Naves caçadoras autônomas.', max: 3 },
-            { id: 'laserTurret', title: 'Orbital Laser', desc: 'Raio letal. +1 alvo simultâneo/nível.', max: 3 },
-            { id: 'rocketLauncher', title: 'Rocket Battery', desc: 'Mísseis teleguiados em área.', max: 3 },
-            { id: 'barrier', title: 'Stasis Field', desc: 'Desacelera inimigos. Área aumenta 1.5x.', max: 3 }
+            { id: 'mainGun', title: 'Twin Blasters', desc: '+1 tiro simultâneo.', max: 3 },
+            { id: 'overdrive', title: 'Charge State', desc: 'Dobra cadência a cada nível.', max: 3 },
+            { id: 'droneTurret', title: 'Hunter Drones', desc: 'Naves de patrulha velozes.', max: 3 },
+            { id: 'laserTurret', title: 'Orbital Laser', desc: '+1 alvo contínuo/nível.', max: 3 },
+            { id: 'rocketLauncher', title: 'Rocket Battery', desc: 'Bateria de Mísseis. Lv3: Área', max: 3 },
+            { id: 'barrier', title: 'Stasis Field', desc: 'Campo de lentidão. 1.5x Área', max: 3 }
         ];
 
         let turretSystem = {
@@ -325,27 +338,37 @@
             height = canvas.height = window.innerHeight;
             targetX = width / 2;
             
-            if (height > width) {
-                globalScale = 0.5; // Escala Mobile
+            // Ajuste para Watch e Mobile (telas redondas ou verticais)
+            if (height > width || width < 600) {
+                globalScale = 0.5;
             } else {
-                globalScale = 1.0; // Escala Desktop
+                globalScale = 1.0;
             }
 
-            if (player) player.y = height - (30 * 1.5 * globalScale);
+            // MÁGICA DO RELÓGIO: 18% de margem mantém o jogo dentro de uma coluna jogável perfeita, 
+            // evitando que as bordas circulares do Galaxy Watch ocultem o herói ou os inimigos.
+            safeMargin = width * 0.18; 
+            towerOffset = width * 0.22; // Torres posicionadas a 22% do centro (visíveis)
+
+            if (player) player.y = height - (height * 0.15) - (player.size/2);
             
             stars = [];
-            for(let i = 0; i < 150; i++) {
+            for(let i = 0; i < 80; i++) {
                 stars.push(new Star());
             }
         }
         window.addEventListener('resize', resize);
 
-        window.addEventListener('mousemove', (e) => { if (isPlaying && !isPaused && !isVictory) targetX = e.clientX; });
+        // Touch Control - Adaptado
         window.addEventListener('touchmove', (e) => { 
-            if (isPlaying && !isPaused && !isVictory) targetX = e.touches[0].clientX; 
+            if (isPlaying && !isPaused && !isVictory) {
+                targetX = e.touches[0].clientX; 
+            }
         }, {passive: true});
         window.addEventListener('touchstart', (e) => { 
-            if (isPlaying && !isPaused && !isVictory) targetX = e.touches[0].clientX; 
+            if (isPlaying && !isPaused && !isVictory) {
+                targetX = e.touches[0].clientX; 
+            }
         }, {passive: true});
 
         function random(min, max) {
@@ -426,7 +449,7 @@
                 this.x += this.vx;
                 this.y += this.vy;
                 this.rot += this.rotSpd;
-                if (this.x < -200 || this.x > width + 200 || this.y < -200 || this.y > height + 200) {
+                if (this.x < -100 || this.x > width + 100 || this.y < -100 || this.y > height + 100) {
                     this.markedForDeletion = true;
                 }
             }
@@ -437,7 +460,7 @@
                 
                 ctx.fillStyle = '#111';
                 ctx.strokeStyle = '#ff3300';
-                ctx.lineWidth = 3 * globalScale;
+                ctx.lineWidth = 2 * globalScale;
                 
                 ctx.beginPath();
                 this.vertices.forEach((v, i) => {
@@ -459,9 +482,9 @@
 
         class Player {
             constructor() {
-                this.size = 20 * 1.5 * globalScale; 
+                this.size = 20 * 1.25 * globalScale; 
                 this.x = width / 2;
-                this.y = height - (30 * 1.5 * globalScale);
+                this.y = height - (height * 0.15) - (this.size/2); 
                 this.speed = 8 * globalScale;
                 this.shootTimer = 0;
             }
@@ -473,10 +496,12 @@
                     this.x = targetX;
                 }
                 
-                if (this.x < this.size) this.x = this.size;
-                if (this.x > width - this.size) this.x = width - this.size;
+                // MÁGICA DO RELÓGIO: Prende o Herói na área jogável (Margem de segurança)
+                if (this.x < safeMargin + this.size) this.x = safeMargin + this.size;
+                if (this.x > width - safeMargin - this.size) this.x = width - safeMargin - this.size;
 
-                let baseShootTime = 400 / Math.pow(2, upgradeLevels.overdrive); 
+                // Cadência dividida pela metade a cada nível do Overdrive (0 = 800ms, 1 = 400ms, 2 = 200ms)
+                let baseShootTime = 800 / Math.pow(2, upgradeLevels.overdrive); 
 
                 this.shootTimer += dt;
                 if (this.shootTimer >= baseShootTime) {
@@ -486,7 +511,7 @@
             }
             shoot() {
                 let count = upgradeLevels.mainGun;
-                let spacing = 15 * 1.5 * globalScale;
+                let spacing = 15 * 1.25 * globalScale;
                 let startX = this.x - ((count - 1) * spacing) / 2;
                 
                 for(let i=0; i < count; i++) {
@@ -497,7 +522,7 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 
-                ctx.shadowBlur = 15 * globalScale;
+                ctx.shadowBlur = 10 * globalScale;
                 ctx.shadowColor = '#00ffcc';
 
                 ctx.fillStyle = '#ccc';
@@ -512,7 +537,7 @@
                 ctx.fillRect(-this.size, -this.size/4, this.size/2, this.size/1.2);
                 ctx.fillRect(this.size/2, -this.size/4, this.size/2, this.size/1.2);
                 
-                ctx.fillStyle = '#ff3366';
+                ctx.fillStyle = '#00aaff';
                 ctx.fillRect(-this.size + 2*globalScale, -this.size/1.2, this.size/3, this.size/2);
                 ctx.fillRect(this.size/2 + 2*globalScale, -this.size/1.2, this.size/3, this.size/2);
 
@@ -525,9 +550,9 @@
                 this.x = x;
                 this.y = y;
                 
-                this.speed = 10 * 1.5 * globalScale;
-                this.projWidth = 3 * 1.5 * globalScale; 
-                this.projLength = 6 * 1.5 * globalScale; 
+                this.speed = 10 * 1.25 * globalScale;
+                this.projWidth = 3 * 1.25 * globalScale; 
+                this.projLength = 6 * 1.25 * globalScale; 
                 this.damage = 1;
                 this.color = '#00ffcc';
 
@@ -545,10 +570,7 @@
             }
             update() {
                 this.y += this.vy;
-                
-                if (this.y < -50) { 
-                    this.markedForDeletion = true;
-                }
+                if (this.y < -50) this.markedForDeletion = true;
             }
             draw() {
                 ctx.save();
@@ -563,8 +585,8 @@
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                this.speed = 0.5 * 1.5 * globalScale; 
-                this.size = 4 * 1.5 * globalScale; 
+                this.speed = 0.5 * 1.25 * globalScale; 
+                this.size = 4 * 1.25 * globalScale; 
                 this.angle = -Math.PI / 2;
                 this.target = null;
                 this.markedForDeletion = false;
@@ -632,8 +654,8 @@
             constructor(x, y) {
                 this.x = x; this.y = y;
                 this.baseX = x; this.baseY = y;
-                this.speed = 1.275 * 1.5 * globalScale; 
-                this.size = 12 * 1.5 * globalScale; 
+                this.speed = 1.9 * 1.25 * globalScale; // Drones 50% mais velozes
+                this.size = 12 * 1.25 * globalScale; 
                 this.target = null;
                 this.shootTimer = 0;
             }
@@ -710,21 +732,23 @@
                 this.maxHp = hpList[level];
                 this.color = borders[level];
                 
-                this.radius = (15 * 1.5 * globalScale) * sizeMod; 
-                this.x = random(this.radius, width - this.radius);
+                this.radius = (15 * 1.25 * globalScale) * sizeMod; 
+                
+                // MÁGICA DO RELÓGIO: Força o Spawn X dentro do Safe Margin
+                this.x = random(this.radius + safeMargin, width - this.radius - safeMargin);
                 this.y = -this.radius * 2;
                 
-                let baseSpd = (0.25 / sizeMod); 
+                let baseSpd = (0.28 / sizeMod); 
                 this.isBoss = false;
                 
                 if (type === 'boss') {
                     this.radius = width * 0.4; 
-                    if (this.radius > 250 * globalScale) this.radius = 250 * globalScale; 
+                    if (this.radius > 200 * globalScale) this.radius = 200 * globalScale; 
                     this.maxHp = 10000;
                     this.isBoss = true;
                     baseSpd = 0.05; 
                     this.color = '#ff0000'; 
-                    this.x = width / 2; 
+                    this.x = width / 2; // Boss no centro
                     this.y = -this.radius - 50; 
                     this.bossTimer = 0;
 
@@ -738,7 +762,7 @@
                     }
                 }
                 
-                this.baseSpeed = baseSpd * globalScale; 
+                this.baseSpeed = baseSpd * globalScale * 0.75; // -25% de redução final de velocidade 
                 this.speed = this.baseSpeed;
                 this.hp = this.maxHp;
                 
@@ -753,7 +777,6 @@
                 this.rot = 0;
                 this.rotSpd = random(-0.02, 0.02);
                 this.markedForDeletion = false;
-                
                 this.laserDmgTimer = 0;
             }
             takeDamage(dmg) {
@@ -802,26 +825,20 @@
                     this.bossTimer += dt;
                     if (this.bossTimer >= 1000) {
                         this.bossTimer -= 1000;
-                        this.baseSpeed *= 1.01; 
+                        this.baseSpeed *= 1.01; // Boss acelera 1% a cada segundo
                     }
-                    
-                    if (Math.random() < 0.8) {
+                    if (Math.random() < 0.5) { // Boss Fogo visual
                         particles.push(new Particle(
                             this.x + random(-this.radius*0.8, this.radius*0.8), 
                             this.y + random(-this.radius*0.8, this.radius*0.8), 
-                            '#ff3300', 
-                            random(3, 8) * globalScale, 
-                            random(0.5, 3)
+                            '#ff3300', random(2, 5) * globalScale, random(0.5, 2)
                         ));
                     }
                 }
 
                 this.y += this.speed;
                 this.rot += this.rotSpd;
-                
-                if (this.y > height + this.radius) {
-                    this.markedForDeletion = true;
-                }
+                if (this.y > height + this.radius) this.markedForDeletion = true;
             }
             draw() {
                 ctx.save();
@@ -854,9 +871,9 @@
 
                 if (this.hp < this.maxHp && !this.isBoss) {
                     ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(-this.radius/2, -this.radius - 10*globalScale, this.radius, 4*globalScale);
+                    ctx.fillRect(-this.radius/2, -this.radius - 8*globalScale, this.radius, 3*globalScale);
                     ctx.fillStyle = '#00ff00';
-                    ctx.fillRect(-this.radius/2, -this.radius - 10*globalScale, this.radius * (this.hp/this.maxHp), 4*globalScale);
+                    ctx.fillRect(-this.radius/2, -this.radius - 8*globalScale, this.radius * (this.hp/this.maxHp), 3*globalScale);
                 }
 
                 ctx.restore();
@@ -864,15 +881,15 @@
         }
 
         function drawEnvironment() {
-            let sunGrd = ctx.createRadialGradient(width/2, 0, 0, width/2, 0, height*0.6);
+            // Sol ao fundo
+            let sunGrd = ctx.createRadialGradient(width/2, 0, 0, width/2, 0, height*0.5);
             sunGrd.addColorStop(0, 'rgba(255, 100, 0, 0.2)');
             sunGrd.addColorStop(0.5, 'rgba(255, 50, 0, 0.05)');
             sunGrd.addColorStop(1, 'transparent');
             ctx.fillStyle = sunGrd;
             ctx.fillRect(0, 0, width, height);
 
-            let domeHeightRatio = 0.15; 
-            let baseY = height - (height * domeHeightRatio);
+            let baseY = height - (height * 0.15); // Base começa nos 15% finais
 
             ctx.fillStyle = '#0a0a15';
             ctx.beginPath();
@@ -883,8 +900,8 @@
             ctx.fill();
 
             // Nova Base Futurista Metálica (Baixa e Larga)
-            let baseW = 320 * 1.5 * globalScale; 
-            let baseH = 25 * 1.5 * globalScale; 
+            let baseW = width * 0.5; // Ocupa metade da largura visível
+            let baseH = 20 * 1.25 * globalScale; 
             let baseTop = height - baseH;
 
             ctx.fillStyle = '#1e1e2d';
@@ -902,52 +919,54 @@
 
             // Janelas brilhantes horizontais
             ctx.fillStyle = '#00ffcc';
-            ctx.shadowBlur = 10 * globalScale;
+            ctx.shadowBlur = 5 * globalScale;
             ctx.shadowColor = '#00ffcc';
             
-            for (let wy = baseTop + 8*globalScale; wy < height - 5*globalScale; wy += 15*globalScale) {
+            for (let wy = baseTop + 5*globalScale; wy < height - 5*globalScale; wy += 12*globalScale) {
                 let rowW = baseW * 0.4;
-                for (let wx = width/2 - rowW/2 + 10*globalScale; wx <= width/2 + rowW/2 - 20*globalScale; wx += 25*globalScale) {
-                    ctx.fillRect(wx, wy, 12*globalScale, 4*globalScale);
+                for (let wx = width/2 - rowW/2 + 5*globalScale; wx <= width/2 + rowW/2 - 15*globalScale; wx += 20*globalScale) {
+                    ctx.fillRect(wx, wy, 8*globalScale, 3*globalScale);
                 }
             }
             ctx.shadowBlur = 0;
 
+            // Suportes das Torres (MÁGICA DO RELÓGIO: Usando offset flexível)
             ctx.fillStyle = '#333';
-            ctx.beginPath(); ctx.arc(width/2 - 200*1.5*globalScale, height, 25*1.5*globalScale, Math.PI, 0); ctx.fill();
-            ctx.beginPath(); ctx.arc(width/2 + 200*1.5*globalScale, height, 25*1.5*globalScale, Math.PI, 0); ctx.fill();
+            ctx.beginPath(); ctx.arc(width/2 - towerOffset, height, 20*1.25*globalScale, Math.PI, 0); ctx.fill();
+            ctx.beginPath(); ctx.arc(width/2 + towerOffset, height, 20*1.25*globalScale, Math.PI, 0); ctx.fill();
 
             if (upgradeLevels.rocketLauncher > 0) {
                 ctx.save();
-                ctx.translate(width/2 - 200*1.5*globalScale, height - 10*globalScale);
+                ctx.translate(width/2 - towerOffset, height - 10*globalScale);
                 ctx.fillStyle = '#555';
-                ctx.fillRect(-15*1.5*globalScale, -30*1.5*globalScale, 30*1.5*globalScale, 40*1.5*globalScale);
+                ctx.fillRect(-12*1.25*globalScale, -25*1.25*globalScale, 24*1.25*globalScale, 30*1.25*globalScale);
                 ctx.fillStyle = '#ff3300';
-                ctx.fillRect(-10*1.5*globalScale, -25*1.5*globalScale, 20*1.5*globalScale, 5*globalScale);
+                ctx.fillRect(-8*1.25*globalScale, -20*1.25*globalScale, 16*1.25*globalScale, 4*globalScale);
                 ctx.restore();
             }
 
             if (upgradeLevels.laserTurret > 0) {
                 ctx.save();
-                ctx.translate(width/2 + 200*1.5*globalScale, height - 10*globalScale);
+                ctx.translate(width/2 + towerOffset, height - 10*globalScale);
                 ctx.fillStyle = '#555';
-                ctx.beginPath(); ctx.arc(0, -15*1.5*globalScale, 15*1.5*globalScale, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#00ffcc';
-                ctx.beginPath(); ctx.arc(0, -15*1.5*globalScale, 5*1.5*globalScale, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, -12*1.25*globalScale, 12*1.25*globalScale, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#00ff00'; // Laser Turret Verde
+                ctx.beginPath(); ctx.arc(0, -12*1.25*globalScale, 4*1.25*globalScale, 0, Math.PI*2); ctx.fill();
                 ctx.restore();
             }
 
-            let domeRadiusY = height * domeHeightRatio; 
+            // Domo clássico Azul começando DO CHÃO (height)
+            let domeRadiusY = height * 0.15; 
+            let domeRadiusX = (width/2) - (safeMargin * 0.5); // Limita o Domo para não vazar nas laterais redondas
             ctx.save();
             ctx.beginPath();
-            ctx.ellipse(width/2, height, width/2, domeRadiusY, 0, Math.PI, 0); 
+            ctx.ellipse(width/2, height, domeRadiusX, domeRadiusY, 0, Math.PI, 0); 
             
             let hpPct = domeHp / domeMaxHp;
             let dColor = hpPct > 0.5 ? '0, 170, 255' : (hpPct > 0.2 ? '255, 170, 0' : '255, 0, 0');
             
             ctx.fillStyle = `rgba(${dColor}, 0.15)`;
             ctx.fill();
-            
             ctx.lineWidth = 2;
             ctx.strokeStyle = `rgba(${dColor}, 0.8)`;
             ctx.stroke();
@@ -991,16 +1010,16 @@
 
                         ts.targets.forEach(target => {
                             target.laserDmgTimer += dt;
-                            if (target.laserDmgTimer >= 200) { 
+                            if (target.laserDmgTimer >= 200) { // 1 dano a cada 0.2s
                                 target.takeDamage(1); 
                                 target.laserDmgTimer = 0;
                             }
                             
                             ctx.save();
                             ctx.beginPath();
-                            ctx.moveTo(width/2 + (200 * 1.5 * globalScale), height - 10*globalScale);
+                            ctx.moveTo(width/2 + towerOffset, height - 10*globalScale);
                             ctx.lineTo(target.x, target.y);
-                            ctx.strokeStyle = '#00ffcc'; 
+                            ctx.strokeStyle = '#00ff00'; // Laser puramente Verde
                             ctx.lineWidth = random(4, 8) * globalScale;
                             ctx.stroke();
                             ctx.restore();
@@ -1047,7 +1066,7 @@
                 } else {
                     rs.sequenceTimer += dt;
                     if (rs.sequenceTimer >= 250) { 
-                        missiles.push(new Missile(width/2 - 200*1.5*globalScale, height - 30*globalScale));
+                        missiles.push(new Missile(width/2 - towerOffset, height - 30*globalScale));
                         rs.sequenceQueue--;
                         rs.sequenceTimer = 0;
                     }
@@ -1064,6 +1083,7 @@
         function checkCollisions() {
             let domeCY = height;
             let domeRadiusY = height * 0.15; 
+            let domeRadiusX = (width/2) - (safeMargin * 0.5);
 
             projectiles.forEach(p => {
                 enemies.forEach(e => {
@@ -1086,7 +1106,7 @@
                             
                             if (upgradeLevels.rocketLauncher === 3) {
                                 triggerFlash();
-                                let expRadius = 60 * 1.5 * globalScale;
+                                let expRadius = 60 * 1.25 * globalScale;
                                 enemies.forEach(ex => {
                                     if (Math.hypot(m.x - ex.x, m.y - ex.y) < expRadius) {
                                         ex.takeDamage(1); 
@@ -1113,7 +1133,7 @@
             enemies.forEach(e => {
                 if (!e.markedForDeletion) {
                     let dy = (e.y - domeCY) / domeRadiusY;
-                    let dx = (e.x - (width/2)) / (width/2);
+                    let dx = (e.x - (width/2)) / domeRadiusX; // Matemático preciso para o novo domo estreito
                     
                     if ( (dx*dx + dy*dy) <= 1 && e.y < domeCY ) {
                         e.markedForDeletion = true;
@@ -1141,8 +1161,9 @@
                 waveTimer = 0;
             }
 
-            if (waveSpawnTimer >= 4000) { 
-                waveSpawnTimer -= 4000;
+            // Metade da quantidade de inimigos (spawn a cada 2s ao invés de 1s)
+            if (waveSpawnTimer >= 2000) { 
+                waveSpawnTimer -= 2000;
                 waveEnemiesToSpawn = enemiesPerWave;
             }
 
@@ -1153,7 +1174,7 @@
                 }
             }
 
-            if (gameTime >= 285000 && !bossSpawned) { 
+            if (gameTime >= 285000 && !bossSpawned) { // 4 minutos e 45s
                 bossSpawned = true;
                 let warn = document.getElementById('warningText');
                 warn.style.display = 'block';
@@ -1201,7 +1222,7 @@
             let hpPct = Math.max(0, domeHp / domeMaxHp);
             let fill = document.getElementById('healthFill');
             fill.style.width = (hpPct * 100) + '%';
-            document.getElementById('healthText').innerText = `Dome Integrity: ${Math.ceil(hpPct * 100)}%`;
+            document.getElementById('healthText').innerText = `Dome: ${Math.ceil(hpPct * 100)}%`;
             if (hpPct < 0.3) fill.style.background = '#ff0000';
             else fill.style.background = '#00aaff';
         }
@@ -1209,22 +1230,15 @@
         function updateInventoryUI() {
             let inv = document.getElementById('inventory');
             inv.innerHTML = '';
-            
-            const icons = {
-                mainGun: '🔫', overdrive: '⚡', droneTurret: '🛸',
-                laserTurret: '🔆', rocketLauncher: '🚀', barrier: '🛡️'
-            };
-
+            const icons = { mainGun: '🔫', overdrive: '⚡', droneTurret: '🛸', laserTurret: '🔆', rocketLauncher: '🚀', barrier: '🛡️' };
             for (const [key, lvl] of Object.entries(upgradeLevels)) {
-                if (lvl > 0) {
-                    inv.innerHTML += `<div class="inv-item">${icons[key]} <span>Lv.${lvl}</span></div>`;
-                }
+                if (lvl > 0) inv.innerHTML += `<div class="inv-item">${icons[key]} <span>Lv.${lvl}</span></div>`;
             }
         }
 
         function triggerLevelUp() {
             let available = allUpgrades.filter(u => upgradeLevels[u.id] < u.max);
-            if (available.length === 0) return; 
+            if (available.length === 0) return; // Se tudo estiver no maximo, não pausa mais o jogo
 
             isPaused = true;
             triggerFlash();
@@ -1257,7 +1271,7 @@
                 for(let i=0; i<dCount; i++) {
                     let spacing = 60 * globalScale;
                     let offset = (i - (dCount-1)/2) * spacing;
-                    drones.push(new Drone(width/2 + offset, height - (height*0.15) - (50*globalScale)));
+                    drones.push(new Drone(width/2 + offset, height - (height*0.15) - (40*globalScale)));
                 }
             }
             
@@ -1273,7 +1287,6 @@
             if (lastTime === 0) lastTime = timestamp;
             let dt = timestamp - lastTime;
             lastTime = timestamp;
-            
             if (dt > 100) dt = 16; 
 
             if (isPaused) {
@@ -1384,7 +1397,7 @@
             document.getElementById('ui-layer').classList.add('hidden');
             let go = document.getElementById('gameOverScreen');
             go.classList.remove('hidden');
-            document.getElementById('finalScore').innerText = `Final Score: ${score}`;
+            document.getElementById('finalScore').innerText = `Score: ${score}`;
         }
 
         function resetGame() {
