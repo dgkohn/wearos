@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DBZ Rogue Like - WearOS</title>
+    <style>
+        /* CSS Otimizado para Smartwatch (Wear OS) */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: none; }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* Container principal que emula a proporção da tela do relógio */
+        #watch-face {
+            position: relative;
+            width: 100vmin;
+            height: 100vmin;
+            background: #1a1a1a;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Telas Overlay */
+        .screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15%;
+        }
+
+        .active { display: flex !important; }
+
+        h1 { font-size: 7vmin; color: #ffcc00; text-transform: uppercase; margin-bottom: 3vmin; text-shadow: 2px 2px 0 #cc0000; }
+        h2 { font-size: 6vmin; color: #4CAF50; margin-bottom: 2vmin; }
+        .danger { color: #ff3333; }
+
+        p.subtitle { font-size: 4vmin; color: #ccc; margin-bottom: 4vmin; line-height: 1.4; }
+
+        /* Pergaminho de Introdução com Scroll Interno */
+        .scroll-container {
+            background-color: #f4e3c5;
+            color: #3e2723;
+            border: 4px solid #8d6e63;
+            border-radius: 8px;
+            padding: 4vmin;
+            width: 100%;
+            max-height: 40vmin;
+            overflow-y: auto;
+            font-size: 3.5vmin;
+            line-height: 1.4;
+            text-align: left;
+            margin-bottom: 3vmin;
+            touch-action: pan-y; /* Habilita scroll aqui */
+        }
+        .scroll-container blockquote {
+            font-weight: bold; color: #b71c1c; border-left: 3px solid #b71c1c;
+            padding-left: 2vmin; margin-top: 2vmin; background: rgba(183, 28, 28, 0.1); padding: 2vmin;
+        }
+
+        button {
+            background-color: #ff6600; color: white; border: 2px solid #cc0000;
+            padding: 3vmin 6vmin; font-size: 4.5vmin; font-weight: bold;
+            border-radius: 20px; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 4px 0 #990000; z-index: 2; touch-action: manipulation;
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 2px 0 #990000; }
+
+        /* === TELA DO JOGO === */
+        #game-screen {
+            background: transparent;
+            padding: 0;
+            display: none; 
+            position: absolute;
+            top:0; left:0; width: 100%; height: 100%;
+        }
+
+        canvas {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            image-rendering: pixelated;
+            z-index: 1;
+        }
+
+        /* HUD */
+        #hud-hp {
+            position: absolute; top: 15%; left: 15%;
+            font-size: 6vmin; color: #4CAF50; font-weight: bold;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000; z-index: 5;
+        }
+
+        #backpack-btn {
+            position: absolute; top: 12%; right: 15%;
+            background: #5a3d2b; border: 3px solid #8b5a2b; color: white;
+            border-radius: 50%; width: 15vmin; height: 15vmin;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 7vmin; box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            z-index: 100; cursor: pointer;
+        }
+        #backpack-btn:active { transform: scale(0.9); }
+
+        #hud-dbs {
+            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 1vmin; z-index: 5;
+        }
+        .db-icon {
+            width: 4vmin; height: 4vmin; border-radius: 50%;
+            background: #555; border: 2px solid #222;
+        }
+        .db-icon.collected { background: #ff9900; border-color: #cc3300; position: relative; }
+        .db-icon.collected::after {
+            content: '★'; color: #cc0000; font-size: 2.5vmin;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+
+        /* Modal do Inventário */
+        #inventory-modal {
+            display: none; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(20, 20, 20, 0.95);
+            border: 3px solid #8b5a2b; border-radius: 20px;
+            padding: 5vmin; width: 75vmin; z-index: 200;
+            flex-direction: column; align-items: center;
+        }
+
+        #inventory-modal h3 { color: #f5deb3; font-size: 4.5vmin; margin-bottom: 3vmin; }
+        
+        .inventory-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vmin;
+        }
+
+        .inv-slot {
+            width: 15vmin; height: 15vmin;
+            background: #333; border: 2px solid #555; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; font-size: 6vmin; cursor: pointer;
+        }
+        .inv-slot.equipped { border-color: #00ffcc; box-shadow: 0 0 10px #00ffcc; }
+        
+        .item-count {
+            position: absolute; bottom: -1vmin; right: -1vmin;
+            background: #cc0000; color: white;
+            font-size: 2.5vmin; font-weight: bold;
+            padding: 0.5vmin 1.5vmin; border-radius: 50%; border: 1px solid #fff;
+        }
+        
+        .close-inv {
+            width: 100%; margin-top: 4vmin; padding: 2vmin;
+            background: #555; border: none; color: white;
+            border-radius: 10px; font-size: 4.5vmin;
+        }
+
+        /* Guia visual sutil das áreas de toque (Opcional, escondido) */
+        #touch-guide {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            pointer-events: none; z-index: 2; opacity: 0;
+            background: radial-gradient(circle, rgba(255,0,0,0.2) 25%, transparent 26%);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="watch-face">
+        
+        <div id="splash-screen" class="screen active">
+            <h1>DBZ Rogue</h1>
+            <p class="subtitle">
+                <strong>Zonas de Toque:</strong><br>
+                Toque nas bordas para andar.<br>
+                Toque no centro para atacar.
+            </p>
+            <button onclick="showIntro(1)">Jogar</button>
+        </div>
+
+        <div id="intro-screen" class="screen">
+            <div class="scroll-container">
+                <p id="intro-p1"></p>
+                <p id="intro-p2"></p>
+                <blockquote>Obj: <span id="intro-obj"></span></blockquote>
+            </div>
+            <button onclick="startCurrentLevel()">Iniciar</button>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <div id="hud-hp">HP: 10</div>
+            
+            <button id="backpack-btn">🎒</button>
+            <div id="hud-dbs"></div>
+
+            <div id="touch-guide"></div>
+            <canvas id="gameCanvas" width="500" height="500"></canvas>
+            
+            <div id="inventory-modal">
+                <h3>Mochila</h3>
+                <div class="inventory-grid" id="inventory-grid"></div>
+                <button class="close-inv" id="close-inv-btn">Fechar</button>
+            </div>
+        </div>
+
+        <div id="victory-screen" class="screen">
+            <h2>Sucesso!</h2>
+            <p class="subtitle" id="victory-text"></p>
+            <button onclick="location.reload()">Reiniciar Jogo</button>
+        </div>
+
+        <div id="game-over-screen" class="screen">
+            <h2 class="danger">Derrotado!</h2>
+            <p class="subtitle">Goku ficou sem energia...</p>
+            <button onclick="location.reload()">Tentar Novamente</button>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const hpDisplay = document.getElementById('hud-hp');
+        const dbContainer = document.getElementById('hud-dbs');
+        const invGrid = document.getElementById('inventory-grid');
+        const invModal = document.getElementById('inventory-modal');
+        const backpackBtn = document.getElementById('backpack-btn');
+        const closeInvBtn = document.getElementById('close-inv-btn');
+
+        const TILE_SIZE = 50;
+        const COLS = 10;
+        const ROWS = 10;
+        const MAX_HP = 10;
+
+        let gameState = 'SPLASH';
+        let currentLevel = 1;
+        let mapContext = 'OVERWORLD';
+        
+        let hp = MAX_HP;
+        let collectedBalls = [false, false, false, false, false, false, false];
+        let inventory = [];
+        let maxInvSlots = 6;
+        
+        let isAttacking = false;
+        let isFlying = false;
+
+        let player = { x: 4, y: 4, dirX: 0, dirY: -1, takingDamage: false };
+        let worldX = 0; let worldY = 0;
+        let worldMaps = {};
+
+        // --- SISTEMA TOUCH OTIMIZADO (BORDAS VS CENTRO) ---
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameState !== 'PLAYING') return;
+            e.preventDefault(); // Impede zoom e scroll
+
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.changedTouches[0];
+            
+            // Posição do toque relativa ao canvas
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+
+            // Centro do canvas
+            const cx = rect.width / 2;
+            const cy = rect.height / 2;
+
+            // Distância do centro
+            const dx = touchX - cx;
+            const dy = touchY - cy;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Raio de ataque (Ex: 25% da largura da tela funciona bem pro meio do relógio)
+            const attackRadius = rect.width * 0.25;
+
+            if (distance <= attackRadius) {
+                // Toque no Centro -> Atacar
+                if (attack()) processTurn();
+            } else {
+                // Toque nas bordas -> Movimento por Ângulo
+                // Math.atan2 retorna ângulo em radianos, converte para graus (-180 a 180)
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                let moveX = 0, moveY = 0;
+
+                if (angle > -45 && angle <= 45) {
+                    moveX = 1; // Direita
+                } else if (angle > 45 && angle <= 135) {
+                    moveY = 1; // Baixo
+                } else if (angle > 135 || angle <= -135) {
+                    moveX = -1; // Esquerda
+                } else if (angle > -135 && angle <= -45) {
+                    moveY = -1; // Cima
+                }
+
+                player.dirX = moveX; 
+                player.dirY = moveY;
+                if (tryMove(moveX, moveY)) processTurn();
+            }
+        }, {passive: false});
+
+        // Controles limpos e isolados para botões (impede propagação para o canvas)
+        backpackBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            toggleInventory();
+        }, {passive: false});
+
+        closeInvBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            toggleInventory();
+        }, {passive: false});
+
+        // --- DADOS DAS FASES ---
+        const levelData = {
+            1: {
+                p1: "Após muito treino, seu objetivo está claro: encontre a casa de seu avô Gohan na floresta.",
+                p2: "Cuidado com os monstros pelo caminho.",
+                obj: "Chegue à casa de Gohan."
+            },
+            2: {
+                p1: "Barulho estrondoso! Um monstro de metal surgiu na estrada e uma garota grita.",
+                p2: "Aproxime-se e investigue.",
+                obj: "Siga à direita e ache a garota."
+            },
+            3: {
+                p1: "Em busca das Esferas, Goku e Bulma chegam a um deserto brutal.",
+                p2: "O caminho é bloqueado por um bandido.",
+                obj: "Cruze o deserto e derrote Yamcha!"
+            },
+            4: {
+                p1: "Yamcha foge apavorado ao ver Bulma! O caminho se abre para uma praia.",
+                p2: "Ajude a tartaruga perdida.",
+                obj: "Empurre a Tartaruga para a água."
+            },
+            5: {
+                p1: "Mestre Kame te deu a Nuvem Voadora! Agora, vocês chegaram numa vila.",
+                p2: "Equipe a nuvem para cruzar o rio e enfrente o Monstro Oolong.",
+                obj: "Voe sobre o rio e derrote Oolong!"
+            }
+        };
+
+        function initWorld(level) {
+            worldMaps = {};
+            if (level === 1) {
+                const dirs = [{x:0, y:-1}, {x:0, y:1}, {x:-1, y:0}, {x:1, y:0}];
+                const houseDir = dirs[Math.floor(Math.random() * dirs.length)];
+
+                worldMaps["0,0"] = { layout: generateForestLayout('CENTER'), enemies: [], items: [] };
+
+                dirs.forEach(d => {
+                    let key = `${d.x},${d.y}`;
+                    let isHouseRoom = (d.x === houseDir.x && d.y === houseDir.y);
+                    let roomData = {
+                        layout: generateForestLayout(getDirectionName(d.x, d.y)),
+                        enemies: [
+                            { type: 'dino_small', hp: 1, maxHp: 1, x: 2, y: 3, wasAdjacent: false },
+                            { type: 'dino_large', hp: 2, maxHp: 2, x: 7, y: 6, wasAdjacent: false }
+                        ], items: []
+                    };
+                    if (isHouseRoom) {
+                        roomData.layout[4][4] = 1; roomData.layout[4][5] = 1; roomData.layout[4][6] = 1;
+                        roomData.layout[5][4] = 1; roomData.layout[5][5] = 4; roomData.layout[5][6] = 1;
+                    } else {
+                        roomData.items.push({ type: 'apple', x: 5, y: 5 });
+                    }
+                    worldMaps[key] = roomData;
+                });
+                worldMaps["inside"] = {
+                    layout: [
+                        [1,1,1,1,1,1,1,1,1,1], [1,6,6,5,5,5,5,6,6,1], [1,6,6,5,5,7,5,6,6,1],
+                        [1,5,5,5,5,6,5,5,5,1], [1,5,5,5,5,5,5,5,5,1], [1,5,6,6,5,5,5,5,5,1],
+                        [1,5,6,6,5,5,5,5,5,1], [1,5,5,5,5,5,5,5,5,1], [1,5,5,5,5,5,5,5,5,1],
+                        [1,1,1,1,5,5,1,1,1,1]
+                    ], enemies: [], items: []
+                };
+                worldX = 0; worldY = 0; player.x = 4; player.y = 4;
+            } 
+            else if (level === 2) {
+                worldMaps["-1,0"] = { layout: generateRoadLayout('START', 2), enemies: [], items: [] };
+                worldMaps["0,0"] = { 
+                    layout: generateRoadLayout('MIDDLE', 2), 
+                    enemies: [
+                        { type: 'dino_small', hp: 1, maxHp: 1, x: 4, y: 3, wasAdjacent: false },
+                        { type: 'dino_large', hp: 2, maxHp: 2, x: 8, y: 5, wasAdjacent: false }
+                    ], items: [{ type: 'apple', x: 2, y: 2 }] 
+                };
+                worldMaps["1,0"] = { layout: generateRoadLayout('END', 2), enemies: [], items: [] };
+                worldX = -1; worldY = 0; player.x = 2; player.y = 4;
+            }
+            else if (level === 3) {
+                worldMaps["-1,0"] = { layout: generateRoadLayout('START', 3), enemies: [], items: [] };
+                worldMaps["0,0"] = { 
+                    layout: generateRoadLayout('MIDDLE', 3), 
+                    enemies: [{ type: 'dino_large', hp: 2, maxHp: 2, x: 5, y: 4, wasAdjacent: false }], 
+                    items: [{ type: 'apple', x: 5, y: 2 }] 
+                };
+                worldMaps["1,0"] = { 
+                    layout: generateRoadLayout('END', 3), 
+                    enemies: [ { type: 'yamcha', hp: 5, maxHp: 5, x: 7, y: 5, wasAdjacent: false } ], items: [] 
+                };
+                worldX = -1; worldY = 0; player.x = 2; player.y = 4;
+            }
+            else if (level === 4) {
+                worldMaps["-1,0"] = { layout: generateBeachLayout('START'), enemies: [], items: [] };
+                worldMaps["0,0"] = { 
+                    layout: generateBeachLayout('MIDDLE'), 
+                    enemies: [
+                        { type: 'crab', hp: 2, maxHp: 2, x: 5, y: 3, wasAdjacent: false },
+                        { type: 'crab', hp: 2, maxHp: 2, x: 8, y: 5, wasAdjacent: false }
+                    ], items: [{ type: 'apple', x: 3, y: 4 }] 
+                };
+                worldMaps["1,0"] = { layout: generateBeachLayout('END'), enemies: [], items: [] };
+                worldMaps["1,0"].layout[4][4] = 13; // Tartaruga
+                worldX = -1; worldY = 0; player.x = 2; player.y = 4;
+            }
+            else if (level === 5) {
+                worldMaps["0,1"] = { layout: generateVillageLayout('START'), enemies: [], items: [] };
+                worldMaps["0,0"] = { 
+                    layout: generateVillageLayout('RIVER'), 
+                    enemies: [{ type: 'dino_small', hp: 1, maxHp: 1, x: 3, y: 7, wasAdjacent: false }], 
+                    items: [{ type: 'apple', x: 8, y: 7 }] 
+                };
+                worldMaps["0,-1"] = { 
+                    layout: generateVillageLayout('CASTLE'), 
+                    enemies: [ { type: 'oolong', hp: 4, maxHp: 4, x: 5, y: 4, wasAdjacent: false } ], items: [] 
+                };
+                worldX = 0; worldY = 1; player.x = 4; player.y = 8;
+            }
+        }
+
+        function getDirectionName(x, y) {
+            if(y === -1) return 'NORTH'; if(y === 1) return 'SOUTH';
+            if(x === -1) return 'WEST'; if(x === 1) return 'EAST'; return 'CENTER';
+        }
+
+        function generateForestLayout(type) {
+            let layout = [];
+            for (let y = 0; y < ROWS; y++) {
+                let row = [];
+                for (let x = 0; x < COLS; x++) {
+                    let isEdge = (x === 0 || x === COLS - 1 || y === 0 || y === ROWS - 1);
+                    if (isEdge) {
+                        if (type === 'CENTER') { row.push((x===4 || x===5 || y===4 || y===5) ? 0 : 2); } 
+                        else if (type === 'NORTH') { row.push(y===ROWS-1 && (x===4 || x===5) ? 0 : 1); } 
+                        else if (type === 'SOUTH') { row.push(y===0 && (x===4 || x===5) ? 0 : 1); } 
+                        else if (type === 'WEST') { row.push(x===COLS-1 && (y===4 || y===5) ? 0 : 1); } 
+                        else if (type === 'EAST') { row.push(x===0 && (y===4 || y===5) ? 0 : 1); }
+                    } else {
+                        let rand = Math.random();
+                        if(rand < 0.05) row.push(2); else if(rand < 0.10) row.push(3); else row.push(0);
+                    }
+                }
+                layout.push(row);
+            }
+            return layout;
+        }
+
+        function generateRoadLayout(type, lvl) {
+            let layout = [];
+            for (let y = 0; y < ROWS; y++) {
+                let row = [];
+                for (let x = 0; x < COLS; x++) {
+                    if (y <= 1 || y >= 8) { row.push(1); } 
+                    else {
+                        let isRoad = (y >= 4 && y <= 5);
+                        if (x === 0 && type === 'START') row.push(1);
+                        else if (x === COLS - 1 && type === 'END') row.push(1);
+                        else if (isRoad) {
+                            if (type === 'END' && lvl === 2 && x === 7 && y === 4) row.push(11); 
+                            else if (type === 'END' && lvl === 2 && x === 6 && y === 5) row.push(12); 
+                            else row.push(10); 
+                        }
+                        else {
+                            let rand = Math.random();
+                            if (lvl === 3 && rand < 0.03) row.push(2); 
+                            else if (lvl !== 3 && rand < 0.1) row.push(2); 
+                            else if(rand < 0.15) row.push(3);
+                            else row.push(0);
+                        }
+                    }
+                }
+                layout.push(row);
+            }
+            return layout;
+        }
+
+        function generateBeachLayout(type) {
+            let layout = [];
+            for (let y = 0; y < ROWS; y++) {
+                let row = [];
+                for (let x = 0; x < COLS; x++) {
+                    if (y <= 1 || y >= 8) { row.push(1); } 
+                    else {
+                        if (x === 0 && type === 'START') row.push(1);
+                        else if (type === 'END' && x >= 7) row.push(14);
+                        else if (x === COLS - 1 && type === 'END') row.push(1);
+                        else {
+                            let rand = Math.random();
+                            if (rand < 0.05) row.push(2); else if (rand < 0.10) row.push(3); else row.push(0); 
+                        }
+                    }
+                }
+                layout.push(row);
+            }
+            return layout;
+        }
+
+        function generateVillageLayout(type) {
+            let layout = [];
+            for (let y = 0; y < ROWS; y++) {
+                let row = [];
+                for (let x = 0; x < COLS; x++) {
+                    if (x === 0 || x === COLS - 1) { row.push(1); } 
+                    else if (y === ROWS - 1 && type === 'START') { row.push(1); } 
+                    else if (y === 0 && type === 'CASTLE') { row.push(1); } 
+                    else {
+                        if (type === 'RIVER') {
+                            if (y >= 3 && y <= 6) row.push(14); else row.push(0);
+                        } else if (type === 'CASTLE') {
+                            if (y <= 2 && x >= 2 && x <= 7) row.push(17); else row.push(0);
+                        } else {
+                            let rand = Math.random();
+                            if (rand < 0.1) row.push(17); else if (rand < 0.15) row.push(2); else row.push(0);
+                        }
+                    }
+                }
+                layout.push(row);
+            }
+            return layout;
+        }
+
+        function getCurrentRoom() {
+            return mapContext === 'INSIDE' ? worldMaps["inside"] : worldMaps[`${worldX},${worldY}`];
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showIntro(level) {
+            currentLevel = level;
+            document.getElementById('intro-p1').innerText = levelData[level].p1;
+            document.getElementById('intro-p2').innerText = levelData[level].p2;
+            document.getElementById('intro-obj').innerText = levelData[level].obj;
+            gameState = 'INTRO';
+            showScreen('intro-screen');
+        }
+
+        function startCurrentLevel() {
+            gameState = 'PLAYING';
+            mapContext = 'OVERWORLD';
+            
+            if (currentLevel === 1) {
+                hp = MAX_HP; inventory = [];
+                collectedBalls = [false, false, false, false, false, false, false];
+                isFlying = false;
+            }
+            initWorld(currentLevel);
+            updateHUD(); renderInventory(); showScreen('game-screen'); draw();
+        }
+
+        function updateHUD() {
+            hpDisplay.innerText = `HP: ${hp}`;
+            hpDisplay.style.color = hp <= 3 ? '#ff3333' : '#4CAF50';
+            
+            dbContainer.innerHTML = '';
+            for(let i = 0; i < 7; i++) {
+                let div = document.createElement('div');
+                div.className = 'db-icon' + (collectedBalls[i] ? ' collected' : '');
+                dbContainer.appendChild(div);
+            }
+        }
+
+        function toggleInventory() {
+            if (gameState === 'PLAYING') {
+                gameState = 'INVENTORY';
+                invModal.style.display = 'flex';
+                renderInventory();
+            } else if (gameState === 'INVENTORY') {
+                gameState = 'PLAYING';
+                invModal.style.display = 'none';
+            }
+        }
+
+        function renderInventory() {
+            invGrid.innerHTML = '';
+            for(let i = 0; i < maxInvSlots; i++) {
+                let slot = document.createElement('div');
+                slot.className = 'inv-slot';
+                
+                if (inventory[i]) {
+                    if (inventory[i].type === 'apple') {
+                        slot.innerHTML = `🍎 <span class="item-count">${inventory[i].qty}</span>`;
+                        slot.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); useItem(i); }, {passive:false});
+                    } else if (inventory[i].type === 'nimbus') {
+                        slot.innerHTML = `☁️`;
+                        if (inventory[i].equipped) slot.classList.add('equipped');
+                        slot.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); useItem(i); }, {passive:false});
+                    }
+                }
+                invGrid.appendChild(slot);
+            }
+        }
+
+        function giveItem(type) {
+            let existing = inventory.find(i => i.type === type);
+            if (existing && type === 'apple') { existing.qty++; } 
+            else if (!existing && inventory.length < maxInvSlots) { 
+                inventory.push({type: type, qty: 1, equipped: false}); 
+            }
+            renderInventory();
+        }
+
+        function useItem(index) {
+            let item = inventory[index];
+            if (item.type === 'apple') {
+                if (hp < MAX_HP) {
+                    hp = Math.min(MAX_HP, hp + 5);
+                    item.qty--;
+                    if(item.qty <= 0) inventory.splice(index, 1);
+                    updateHUD(); renderInventory(); draw();
+                }
+            } else if (item.type === 'nimbus') {
+                let room = getCurrentRoom();
+                if (item.equipped && room.layout[player.y][player.x] === 14) {
+                    return; 
+                }
+                item.equipped = !item.equipped;
+                isFlying = item.equipped;
+                renderInventory(); draw();
+            }
+        }
+
+        function takeDamage(amount) {
+            hp -= amount; updateHUD();
+            player.takingDamage = true;
+            setTimeout(() => { player.takingDamage = false; draw(); }, 200);
+
+            if (hp <= 0) {
+                gameState = 'GAMEOVER';
+                setTimeout(() => showScreen('game-over-screen'), 500);
+            }
+        }
+
+        function completeObjective() {
+            if (currentLevel === 1) {
+                collectedBalls[3] = true; updateHUD(); draw(); setTimeout(() => showIntro(2), 1000);
+            } else if (currentLevel === 2) {
+                draw(); setTimeout(() => showIntro(3), 1000);
+            } else if (currentLevel === 3) {
+                draw(); setTimeout(() => showIntro(4), 1000);
+            } else if (currentLevel === 4) {
+                draw(); giveItem('nimbus'); setTimeout(() => showIntro(5), 1800);
+            } else if (currentLevel === 5) {
+                draw();
+                setTimeout(() => {
+                    document.getElementById('victory-text').innerText = "Você venceu Oolong!";
+                    gameState = 'VICTORY'; showScreen('victory-screen');
+                }, 1000);
+            }
+        }
+
+        function tryMove(dx, dy) {
+            let nextX = player.x + dx; let nextY = player.y + dy;
+            let room = getCurrentRoom();
+
+            if (mapContext === 'OVERWORLD' && (nextX < 0 || nextX >= COLS || nextY < 0 || nextY >= ROWS)) {
+                let targetWX = worldX + dx; let targetWY = worldY + dy;
+                if (worldMaps[`${targetWX},${targetWY}`]) {
+                    worldX = targetWX; worldY = targetWY;
+                    player.x = nextX < 0 ? COLS-1 : (nextX >= COLS ? 0 : nextX);
+                    player.y = nextY < 0 ? ROWS-1 : (nextY >= ROWS ? 0 : nextY);
+                    return true;
+                } return false; 
+            }
+
+            if(nextX < 0 || nextX >= COLS || nextY < 0 || nextY >= ROWS) return false;
+
+            let targetTile = room.layout[nextY][nextX];
+            if (room.enemies.some(e => e.x === nextX && e.y === nextY && e.hp > 0)) return false;
+
+            if (targetTile === 14) {
+                if (isFlying) {
+                    player.x = nextX; player.y = nextY;
+                    checkItemsOnFloor(nextX, nextY, room); return true;
+                } else return false;
+            }
+
+            if (targetTile === 0 || targetTile === 5 || targetTile === 7 || targetTile === 10) { 
+                if (targetTile === 7 && mapContext === 'INSIDE') { 
+                    room.layout[nextY][nextX] = 5; completeObjective();
+                }
+                player.x = nextX; player.y = nextY;
+                checkItemsOnFloor(nextX, nextY, room); return true; 
+            } 
+            else if (targetTile === 3 || targetTile === 13) {
+                if (isFlying) return false;
+                let pushX = nextX + dx; let pushY = nextY + dy;
+                if (pushX >= 0 && pushX < COLS && pushY >= 0 && pushY < ROWS) {
+                    let tileBehind = room.layout[pushY][pushX];
+                    let validPushForTurtle = (targetTile === 13 && (tileBehind === 0 || tileBehind === 14));
+                    let validPushForBox = (targetTile === 3 && (tileBehind === 0 || tileBehind === 10));
+
+                    if ((validPushForBox || validPushForTurtle) && !room.enemies.some(e => e.x === pushX && e.y === pushY && e.hp > 0)) {
+                        if (targetTile === 13 && tileBehind === 14) {
+                            room.layout[nextY][nextX] = 0; room.layout[pushY][pushX] = 16; 
+                            player.x = nextX; player.y = nextY; completeObjective();
+                        } else {
+                            room.layout[pushY][pushX] = targetTile; 
+                            room.layout[nextY][nextX] = (targetTile === 3 && tileBehind === 10) ? 10 : 0;
+                            player.x = nextX; player.y = nextY;
+                        }
+                        return true;
+                    }
+                } return false; 
+            }
+            else if (targetTile === 4) {
+                mapContext = 'INSIDE'; player.x = 4; player.y = 8; return true;
+            }
+            else if (targetTile === 12 && currentLevel === 2) {
+                completeObjective(); return true;
+            }
+            
+            if (mapContext === 'INSIDE' && (nextX === 4 || nextX === 5) && nextY === 9) {
+                 mapContext = 'OVERWORLD'; player.x = 5; player.y = 6; return true;
+            }
+            return false; 
+        }
+
+        function checkItemsOnFloor(x, y, room) {
+            let itemIndex = room.items.findIndex(i => i.x === x && i.y === y);
+            if (itemIndex > -1) {
+                giveItem(room.items[itemIndex].type); room.items.splice(itemIndex, 1);
+            }
+        }
+
+        function attack() {
+            if (isFlying) return false;
+
+            isAttacking = true;
+            let targetX = player.x + player.dirX; let targetY = player.y + player.dirY;
+            let room = getCurrentRoom();
+            
+            if (targetX >= 0 && targetX < COLS && targetY >= 0 && targetY < ROWS) {
+                let enemyIdx = room.enemies.findIndex(e => e.x === targetX && e.y === targetY && e.hp > 0);
+                if (enemyIdx > -1) {
+                    let enemy = room.enemies[enemyIdx];
+                    enemy.hp -= 1;
+                    if (enemy.hp <= 0) {
+                        let defeatedType = enemy.type;
+                        if (defeatedType === 'yamcha') {
+                            room.enemies.splice(enemyIdx, 1); completeObjective();
+                        } else if (defeatedType === 'oolong') {
+                            enemy.type = 'oolong_pig'; enemy.hp = 0; completeObjective();
+                        } else {
+                            room.enemies.splice(enemyIdx, 1);
+                        }
+                    }
+                } else if (room.layout[targetY][targetX] === 3) {
+                    room.layout[targetY][targetX] = 0;
+                }
+            }
+            draw(); setTimeout(() => { isAttacking = false; draw(); }, 150); return true; 
+        }
+
+        function processTurn() {
+            let room = getCurrentRoom();
+            room.enemies.forEach(enemy => {
+                if (enemy.hp <= 0) return;
+                let dx = player.x - enemy.x; let dy = player.y - enemy.y;
+                let distance = Math.abs(dx) + Math.abs(dy);
+                
+                if (distance === 1) {
+                    if (enemy.wasAdjacent) takeDamage(1); else enemy.wasAdjacent = true; 
+                } else {
+                    let stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+                    let stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+                    let nextX = enemy.x; let nextY = enemy.y;
+                    
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        if (canEnemyMove(enemy.x + stepX, enemy.y, room)) nextX += stepX;
+                        else if (canEnemyMove(enemy.x, enemy.y + stepY, room)) nextY += stepY;
+                    } else {
+                        if (canEnemyMove(enemy.x, enemy.y + stepY, room)) nextY += stepY;
+                        else if (canEnemyMove(enemy.x + stepX, enemy.y, room)) nextX += stepX;
+                    }
+                    enemy.x = nextX; enemy.y = nextY;
+                    enemy.wasAdjacent = (Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y) === 1);
+                }
+            });
+            draw();
+        }
+
+        function canEnemyMove(x, y, room) {
+            if(x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+            if(room.layout[y][x] !== 0 && room.layout[y][x] !== 5 && room.layout[y][x] !== 10) return false;
+            if(room.enemies.some(e => e.x === x && e.y === y && e.hp > 0)) return false;
+            if(x === player.x && y === player.y) return false;
+            return true;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMap(); drawEntities(); drawPlayer(); if(isAttacking) drawAttack();
+        }
+
+        function drawMap() {
+            let room = getCurrentRoom();
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    const tile = room.layout[y][x];
+                    const px = x * TILE_SIZE; const py = y * TILE_SIZE;
+
+                    let bgColor = '#4da64d'; 
+                    if (currentLevel === 3) bgColor = '#d8b589'; else if (currentLevel === 4) bgColor = '#eecd86';
+                    ctx.fillStyle = mapContext === 'OVERWORLD' ? bgColor : '#8f9aa6';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+                    switch(tile) {
+                        case 1: 
+                            if (mapContext === 'OVERWORLD') {
+                                ctx.fillStyle = currentLevel === 3 ? '#b8865c' : '#d2b48c'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                                ctx.strokeStyle = currentLevel === 3 ? '#8b5a2b' : '#8b7355'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                                ctx.beginPath(); ctx.moveTo(px+10, py+40); ctx.lineTo(px+25, py+10); ctx.lineTo(px+40, py+40);
+                                ctx.strokeStyle = currentLevel === 3 ? '#734a21' : '#a08560'; ctx.stroke();
+                            } else {
+                                ctx.fillStyle = '#5c3a21'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                                ctx.strokeStyle = '#3e2716'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                                ctx.beginPath(); ctx.moveTo(px, py + 16); ctx.lineTo(px + TILE_SIZE, py + 16);
+                                ctx.moveTo(px, py + 34); ctx.lineTo(px + TILE_SIZE, py + 34); ctx.strokeStyle = '#4a2e1b'; ctx.stroke();
+                            } break;
+                        case 2: 
+                            if (currentLevel === 3) {
+                                ctx.fillStyle = '#2d8a4e'; ctx.fillRect(px+20, py+10, 10, 35);
+                                ctx.fillRect(px+10, py+20, 10, 8); ctx.fillRect(px+30, py+25, 10, 8);
+                            } else if (currentLevel === 4) {
+                                ctx.fillStyle = '#8b4513'; ctx.fillRect(px+22, py+25, 6, 25);
+                                ctx.fillStyle = '#228b22'; ctx.beginPath(); ctx.arc(px+25, py+20, 20, 0, Math.PI); ctx.fill();
+                            } else {
+                                ctx.fillStyle = '#654321'; ctx.fillRect(px + 20, py + 25, 10, 25);
+                                ctx.fillStyle = '#1e5928'; ctx.beginPath(); ctx.arc(px + 25, py + 20, 18, 0, Math.PI*2); ctx.fill();
+                            } break;
+                        case 3: 
+                            ctx.fillStyle = '#c49a6c'; ctx.fillRect(px + 5, py + 5, 40, 40);
+                            ctx.strokeStyle = '#5e3e20'; ctx.strokeRect(px + 5, py + 5, 40, 40);
+                            ctx.beginPath(); ctx.moveTo(px+5, py+5); ctx.lineTo(px+45, py+45); ctx.moveTo(px+45, py+5); ctx.lineTo(px+5, py+45); ctx.stroke();
+                            break;
+                        case 4: 
+                            ctx.fillStyle = '#1a5ebd'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                            ctx.fillStyle = '#d41c1c'; ctx.fillRect(px + 15, py + 15, 20, 20); ctx.fillStyle = '#fff'; ctx.fillRect(px + 20, py + 20, 10, 10);
+                            break;
+                        case 6: ctx.fillStyle = '#5c4033'; ctx.fillRect(px + 2, py + 2, 46, 46); break;
+                        case 7: drawDragonBallItem(px, py); break;
+                        case 10: 
+                            ctx.fillStyle = currentLevel === 3 ? '#c49a6c' : '#9c6f44'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                            ctx.fillStyle = currentLevel === 3 ? '#a67d53' : '#835a34'; ctx.fillRect(px+10, py+10, 5, 3); ctx.fillRect(px+30, py+35, 7, 4);
+                            break;
+                        case 11: 
+                            ctx.fillStyle = '#9c6f44'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); 
+                            ctx.fillStyle = '#e6e6e6'; ctx.beginPath(); ctx.arc(px+25, py+30, 22, Math.PI, 0); ctx.fill(); 
+                            ctx.fillStyle = '#2db9b9'; ctx.beginPath(); ctx.arc(px+25, py+28, 14, Math.PI, 0); ctx.fill(); 
+                            ctx.fillStyle = '#333'; ctx.fillRect(px+10, py+30, 10, 8); ctx.fillRect(px+30, py+30, 10, 8); break;
+                        case 12: 
+                            ctx.fillStyle = '#9c6f44'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); 
+                            ctx.fillStyle = '#ff66b2'; ctx.fillRect(px+15, py+20, 20, 25); ctx.fillStyle = '#ffe0cc'; ctx.fillRect(px+17, py+10, 16, 12);
+                            ctx.fillStyle = '#00cccc'; ctx.beginPath(); ctx.arc(px+25, py+12, 10, Math.PI, 0); ctx.fill(); ctx.fillRect(px+15, py+12, 5, 12); 
+                            ctx.beginPath(); ctx.arc(px+33, py+15, 6, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#000'; ctx.fillRect(px+20, py+15, 2, 2); ctx.fillRect(px+28, py+15, 2, 2); break;
+                        case 13: 
+                            ctx.fillStyle = '#eecd86'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); 
+                            ctx.fillStyle = '#556b2f'; ctx.fillRect(px+10, py+15, 30, 20); ctx.fillStyle = '#228b22'; 
+                            ctx.fillRect(px+5, py+20, 5, 10); ctx.fillRect(px+40, py+20, 6, 10); 
+                            ctx.fillRect(px+15, py+10, 6, 6); ctx.fillRect(px+30, py+10, 6, 6); 
+                            ctx.fillRect(px+15, py+35, 6, 6); ctx.fillRect(px+30, py+35, 6, 6); break;
+                        case 14: 
+                            ctx.fillStyle = '#1e90ff'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                            ctx.strokeStyle = '#4169e1'; ctx.lineWidth = 2;
+                            ctx.beginPath(); ctx.moveTo(px+5, py+15); ctx.quadraticCurveTo(px+15, py+5, px+25, py+15); ctx.stroke();
+                            ctx.beginPath(); ctx.moveTo(px+25, py+35); ctx.quadraticCurveTo(px+35, py+25, px+45, py+35); ctx.stroke(); break;
+                        case 16: 
+                            ctx.fillStyle = '#1e90ff'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                            ctx.fillStyle = '#ff9900'; ctx.fillRect(px+12, py+20, 26, 25); ctx.fillStyle = '#ffe0cc'; ctx.fillRect(px+15, py+10, 20, 15); 
+                            ctx.fillStyle = '#000'; ctx.fillRect(px+15, py+15, 20, 5); ctx.fillStyle = '#fff'; ctx.fillRect(px+15, py+20, 20, 8); 
+                            ctx.fillStyle = '#800080'; ctx.fillRect(px+5, py+22, 10, 20); break;
+                        case 17:
+                            ctx.fillStyle = '#9e9e9e'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                            ctx.strokeStyle = '#616161'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                            ctx.beginPath(); ctx.moveTo(px, py+25); ctx.lineTo(px+TILE_SIZE, py+25); ctx.stroke();
+                            ctx.beginPath(); ctx.moveTo(px+25, py); ctx.lineTo(px+25, py+25); ctx.stroke();
+                            ctx.beginPath(); ctx.moveTo(px+10, py+25); ctx.lineTo(px+10, py+TILE_SIZE); ctx.stroke();
+                            ctx.beginPath(); ctx.moveTo(px+40, py+25); ctx.lineTo(px+40, py+TILE_SIZE); ctx.stroke(); break;
+                    }
+                }
+            }
+        }
+
+        function drawEntities() {
+            let room = getCurrentRoom();
+            room.items.forEach(item => {
+                let px = item.x * TILE_SIZE; let py = item.y * TILE_SIZE;
+                if(item.type === 'apple') {
+                    ctx.fillStyle = '#e60000'; ctx.beginPath(); ctx.arc(px + 25, py + 30, 10, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#33cc33'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px + 25, py + 20); ctx.lineTo(px + 28, py + 10); ctx.stroke();
+                }
+            });
+            room.enemies.forEach(enemy => {
+                let px = enemy.x * TILE_SIZE; let py = enemy.y * TILE_SIZE;
+                if (enemy.type === 'dino_small') {
+                    ctx.fillStyle = '#33cc33'; ctx.fillRect(px + 10, py + 15, 30, 25); ctx.fillStyle = '#006600'; ctx.fillRect(px + 15, py + 20, 5, 5);
+                } else if (enemy.type === 'dino_large') {
+                    ctx.fillStyle = '#cc0000'; ctx.fillRect(px + 5, py + 5, 40, 40); ctx.fillStyle = '#660000'; ctx.fillRect(px + 10, py + 15, 8, 8);
+                    ctx.fillStyle = '#000'; ctx.fillRect(px + 5, py - 5, 40, 5); ctx.fillStyle = '#00ff00'; ctx.fillRect(px + 5, py - 5, (enemy.hp/enemy.maxHp)*40, 5);
+                } else if (enemy.type === 'yamcha') {
+                    ctx.fillStyle = '#ff8800'; ctx.fillRect(px + 10, py + 15, 30, 25); ctx.fillStyle = '#2e8b57'; ctx.fillRect(px + 15, py + 15, 20, 15);
+                    ctx.fillStyle = '#ffe0cc'; ctx.fillRect(px + 15, py + 5, 20, 12); ctx.fillStyle = '#000'; 
+                    ctx.beginPath(); ctx.arc(px + 25, py + 6, 12, Math.PI, 0); ctx.fill(); ctx.fillRect(px + 12, py + 6, 26, 6);
+                    ctx.fillStyle = '#a9a9a9'; ctx.fillRect(px + 5, py + 5, 5, 30); 
+                    ctx.fillStyle = '#000'; ctx.fillRect(px + 5, py - 10, 40, 6); ctx.fillStyle = '#ffcc00'; ctx.fillRect(px + 5, py - 10, (enemy.hp/enemy.maxHp)*40, 6);
+                } else if (enemy.type === 'crab') {
+                    ctx.fillStyle = '#ff4d4d'; ctx.fillRect(px + 10, py + 20, 30, 20); ctx.fillRect(px + 5, py + 15, 10, 10); ctx.fillRect(px + 35, py + 15, 10, 10); 
+                    ctx.fillStyle = '#000'; ctx.fillRect(px + 15, py + 25, 4, 4); ctx.fillRect(px + 31, py + 25, 4, 4); 
+                    ctx.fillStyle = '#000'; ctx.fillRect(px + 5, py - 5, 40, 5); ctx.fillStyle = '#00ff00'; ctx.fillRect(px + 5, py - 5, (enemy.hp/enemy.maxHp)*40, 5);
+                } else if (enemy.type === 'oolong') {
+                    ctx.fillStyle = '#8B0000'; ctx.fillRect(px + 5, py + 5, 40, 40); 
+                    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px + 15, py + 5, 8, 0, Math.PI); ctx.fill(); ctx.beginPath(); ctx.arc(px + 35, py + 5, 8, 0, Math.PI); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.fillRect(px + 12, py + 15, 6, 6); ctx.fillRect(px + 32, py + 15, 6, 6); ctx.fillStyle = '#000'; ctx.fillRect(px + 14, py + 17, 2, 2); ctx.fillRect(px + 34, py + 17, 2, 2); 
+                    ctx.fillStyle = '#000'; ctx.fillRect(px + 5, py - 10, 40, 6); ctx.fillStyle = '#ff3333'; ctx.fillRect(px + 5, py - 10, (enemy.hp/enemy.maxHp)*40, 6);
+                } else if (enemy.type === 'oolong_pig') {
+                    ctx.fillStyle = '#ffb6c1'; ctx.fillRect(px + 15, py + 25, 20, 15); ctx.fillStyle = '#ff69b4'; ctx.fillRect(px + 20, py + 28, 10, 8); 
+                    ctx.fillStyle = '#000'; ctx.fillRect(px + 17, py + 22, 4, 6); ctx.fillRect(px + 29, py + 22, 4, 6); ctx.fillRect(px + 22, py + 30, 2, 2); ctx.fillRect(px + 26, py + 30, 2, 2); 
+                }
+            });
+        }
+
+        function drawDragonBallItem(px, py) {
+            ctx.fillStyle = '#6b2c91'; ctx.fillRect(px + 10, py + 30, 30, 15);
+            const bx = px + TILE_SIZE / 2, by = py + TILE_SIZE / 2;
+            ctx.fillStyle = '#ff9900'; ctx.beginPath(); ctx.arc(bx, by, 12, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#cc3300'; ctx.stroke();
+            ctx.fillStyle = '#cc0000'; const o = [{x:-3,y:-3},{x:3,y:-3},{x:-3,y:3},{x:3,y:3}];
+            o.forEach(pos => { ctx.beginPath(); ctx.arc(bx + pos.x, by + pos.y, 1.5, 0, Math.PI*2); ctx.fill(); });
+        }
+
+        function drawPlayer() {
+            const px = player.x * TILE_SIZE; const py = player.y * TILE_SIZE;
+            if (isFlying) {
+                ctx.fillStyle = '#ffdb58'; ctx.beginPath();
+                ctx.arc(px + 15, py + 40, 12, 0, Math.PI*2); ctx.arc(px + 25, py + 35, 14, 0, Math.PI*2); ctx.arc(px + 35, py + 40, 12, 0, Math.PI*2); ctx.fill();
+            }
+            const yo = isFlying ? -10 : 0;
+            ctx.fillStyle = '#6b4a31'; ctx.fillRect(px + 5, py + 35 + yo, 15, 5); ctx.fillStyle = '#1e3799'; ctx.fillRect(px + 12, py + 20 + yo, 26, 25);
+            ctx.fillStyle = '#f5f6fa'; ctx.fillRect(px + 12, py + 30 + yo, 26, 4); ctx.fillStyle = '#ffcc99'; ctx.fillRect(px + 15, py + 10 + yo, 20, 14);
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(px+10, py+12+yo); ctx.lineTo(px+5, py+2+yo); ctx.lineTo(px+15, py+5+yo); ctx.lineTo(px+25, py-5+yo); ctx.lineTo(px+35, py+5+yo); ctx.lineTo(px+45, py+2+yo); ctx.lineTo(px+40, py+12+yo); ctx.fill();
+            ctx.fillStyle = '#000'; let ex = player.dirX * 5, ey = player.dirY * 5; ctx.fillRect(px + 20 + ex, py + 15 + ey + yo, 3, 3); ctx.fillRect(px + 28 + ex, py + 15 + ey + yo, 3, 3);
+            if (player.takingDamage) { ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); }
+        }
+
+        function drawAttack() {
+            ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(player.x*50+25, player.y*50+25); ctx.lineTo((player.x+player.dirX)*50+25, (player.y+player.dirY)*50+25); ctx.stroke();
+        }
+    </script>
+</body>
+</html>
