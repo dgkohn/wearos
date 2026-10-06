@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WatchPet 3D</title>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #111;
+            --ui-dark: rgba(20, 20, 25, 0.9);
+            --ui-light: rgba(255, 255, 255, 0.9);
+            --primary: #4CAF50;
+            --danger: #f44336;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-color);
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; touch-action: none;
+        }
+
+        /* The Smartwatch Circular Screen */
+        #watch-screen {
+            position: relative;
+            width: 100vmin; max-width: 400px;
+            height: 100vmin; max-height: 400px;
+            border-radius: 50%;
+            background-color: #000;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(255,255,255,0.1);
+            border: 8px solid #222;
+        }
+
+        #game-canvas {
+            width: 100%; height: 100%; display: block;
+        }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.3s; z-index: 10;
+        }
+        .hidden { opacity: 0; pointer-events: none; }
+
+        #splash-screen {
+            background: linear-gradient(135deg, #6dd5ed, #2193b0);
+            color: white; z-index: 100;
+        }
+        #splash-screen h1 { margin: 0; font-size: 2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .btn-start {
+            margin-top: 20px; padding: 12px 24px; border: none; border-radius: 20px;
+            background: white; color: #2193b0; font-weight: bold; font-size: 1.1rem;
+            cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* Radial HUD */
+        #hud { pointer-events: none; z-index: 5; }
+        .hud-btn {
+            position: absolute; width: 44px; height: 44px;
+            background: var(--ui-light); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.2rem; cursor: pointer; pointer-events: auto;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 2px solid #ddd;
+            transform: translate(-50%, -50%); transition: transform 0.1s;
+        }
+        .hud-btn:active { transform: translate(-50%, -50%) scale(0.9); }
+        .hud-btn.alert { animation: blinkAlert 1s infinite; border-color: var(--danger); background: #ffeeee; }
+        @keyframes blinkAlert { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; background: var(--danger); } }
+
+        /* Sub-menus */
+        #food-menu { background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        .food-options { display: flex; gap: 15px; }
+        .food-btn {
+            width: 60px; height: 60px; border-radius: 50%; border: none;
+            font-size: 2rem; background: white; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        /* Status Menu */
+        #status-menu { background: var(--ui-dark); color: white; justify-content: flex-start; padding-top: 15%; }
+        .status-title { font-size: 1.2rem; margin-bottom: 15px; font-weight: bold; }
+        .status-row {
+            display: flex; align-items: center; width: 70%; margin-bottom: 10px;
+        }
+        .status-icon { width: 30px; font-size: 1.2rem; text-align: left; }
+        .status-bar-bg {
+            flex-grow: 1; height: 12px; background: #444; border-radius: 6px; overflow: hidden;
+        }
+        .status-bar-fill { height: 100%; border-radius: 6px; transition: width 0.3s, background-color 0.3s; }
+        
+        .btn-reset {
+            margin-top: 15px; padding: 10px 20px; background: var(--danger);
+            color: white; border: none; border-radius: 15px; font-weight: bold; cursor: pointer;
+        }
+        .btn-close {
+            position: absolute; bottom: 15%; padding: 8px 16px; background: #555;
+            color: white; border: none; border-radius: 15px; cursor: pointer;
+        }
+
+        /* Thought Bubble (Projected from 3D) */
+        #thought-bubble {
+            position: absolute;
+            background: white; border-radius: 50%; padding: 5px;
+            font-size: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            pointer-events: none; z-index: 20;
+            transform: translate(-50%, -100%);
+            opacity: 0; transition: opacity 0.2s;
+        }
+        #thought-bubble::after {
+            content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
+            border-width: 5px 5px 0; border-style: solid; border-color: white transparent transparent transparent;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="watch-screen">
+        <!-- 3D Canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Thought Bubble -->
+        <div id="thought-bubble" class="hidden">❓</div>
+
+        <!-- Radial HUD -->
+        <div id="hud" class="overlay hidden">
+            <!-- Buttons will be positioned via JS -->
+            <div class="hud-btn" id="btn-feed" title="Alimentar">🍔</div>
+            <div class="hud-btn" id="btn-light" title="Luz">💡</div>
+            <div class="hud-btn" id="btn-play" title="Brincar">⚽</div>
+            <div class="hud-btn" id="btn-med" title="Remédio">💊</div>
+            <div class="hud-btn" id="btn-clean" title="Limpar">🧽</div>
+            <div class="hud-btn" id="btn-status" title="Status">📊</div>
+            <div class="hud-btn" id="btn-disc" title="Disciplina">📣</div>
+            <div class="hud-btn" id="btn-warn" title="Atenção">❗</div>
+        </div>
+
+        <!-- Food Selection Sub-menu -->
+        <div id="food-menu" class="overlay hidden">
+            <h3 style="color:white; margin-bottom: 20px; text-shadow: 1px 1px 2px black;">O que comer?</h3>
+            <div class="food-options">
+                <button class="food-btn" onclick="feed('burger')">🍔</button>
+                <button class="food-btn" onclick="feed('lollipop')">🍭</button>
+            </div>
+            <button class="btn-close" onclick="closeFoodMenu()" style="bottom: 25%;">Cancelar</button>
+        </div>
+
+        <!-- Status Menu -->
+        <div id="status-menu" class="overlay hidden">
+            <div class="status-title">Status do Pet</div>
+            <div class="status-row"><div class="status-icon">🍔</div><div class="status-bar-bg"><div id="bar-hunger" class="status-bar-fill"></div></div></div>
+            <div class="status-row"><div class="status-icon">💖</div><div class="status-bar-bg"><div id="bar-happy" class="status-bar-fill"></div></div></div>
+            <div class="status-row"><div class="status-icon">⚕️</div><div class="status-bar-bg"><div id="bar-health" class="status-bar-fill"></div></div></div>
+            <div class="status-row"><div class="status-icon">⚡</div><div class="status-bar-bg"><div id="bar-energy" class="status-bar-fill"></div></div></div>
+            <div class="status-row"><div class="status-icon">✨</div><div class="status-bar-bg"><div id="bar-clean" class="status-bar-fill"></div></div></div>
+            
+            <button class="btn-reset" onclick="resetGame()">RESETAR</button>
+            <button class="btn-close" onclick="closeStatus()">Voltar</button>
+        </div>
+
+        <!-- Splash Screen -->
+        <div id="splash-screen" class="overlay">
+            <h1>WatchPet 3D</h1>
+            <p style="font-size: 3rem; margin: 10px 0;">🐶</p>
+            <button class="btn-start" onclick="startGame()">Tocar para Iniciar</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Game State & Persistence ---
+        const STORAGE_KEY = 'watchpet3d_save';
+        let stats = {
+            hunger: 100, happy: 100, health: 100, energy: 100, clean: 100,
+            poopCount: 0,
+            lastUpdate: Date.now()
+        };
+        let petState = 'idle'; // idle, moving, action, sleep
+        let activeObj = null; 
+        let isNight = false;
+        let showThoughtTimeout = null;
+
+        function saveGame() {
+            stats.lastUpdate = Date.now();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    let parsed = JSON.parse(saved);
+                    let now = Date.now();
+                    let elapsedHours = (now - parsed.lastUpdate) / (1000 * 60 * 60);
+                    
+                    // Apply offline decay (e.g., -5% per hour)
+                    stats.hunger = Math.max(0, parsed.hunger - (elapsedHours * 10));
+                    stats.happy = Math.max(0, parsed.happy - (elapsedHours * 8));
+                    stats.energy = Math.max(0, Math.min(100, parsed.energy + (elapsedHours * 10))); // Energy recovers slightly? Or decays if awake. Let's just decay.
+                    stats.clean = Math.max(0, parsed.clean - (elapsedHours * 5));
+                    stats.health = Math.max(0, parsed.health - (elapsedHours * 2));
+                    
+                    // Add some poop based on time and hunger decayed
+                    let newPoops = Math.floor(elapsedHours / 2);
+                    stats.poopCount = Math.min(5, (parsed.poopCount || 0) + newPoops);
+                    if(stats.poopCount > 2) stats.health -= 10; // Penalty for dirty room
+
+                    stats.health = Math.max(0, stats.health);
+                } catch(e) { console.error("Save corrupted, starting fresh."); }
+            }
+        }
+
+        function resetGame() {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        }
+
+        // --- Three.js Setup ---
+        const canvas = document.getElementById('game-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky blue
+        
+        // Camera setup for small round screen
+        const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+        camera.position.set(0, 4, 8);
+        camera.lookAt(0, 0, 0);
+
+        function handleResize() {
+            const size = Math.min(window.innerWidth, window.innerHeight);
+            if (size > 400) { // Limit for smartwatch simulation wrapper
+                renderer.setSize(400, 400);
+            } else {
+                renderer.setSize(size, size);
+            }
+            camera.aspect = 1;
+            camera.updateProjectionMatrix();
+            positionHUD();
+        }
+        window.addEventListener('resize', handleResize);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.position.set(5, 10, 5);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        // --- Procedural 3D Environment ---
+        const materials = {
+            wood: new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 }),
+            wall: new THREE.MeshStandardMaterial({ color: 0xfff0e6, roughness: 1 }),
+            rug: new THREE.MeshStandardMaterial({ color: 0xcd5c5c, roughness: 1 }),
+            petBody: new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.5 }), // Yellow
+            petSick: new THREE.MeshStandardMaterial({ color: 0x9acd32, roughness: 0.5 }), // Sick green
+            black: new THREE.MeshBasicMaterial({ color: 0x000000 }),
+            poop: new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 1 }),
+            burgerBun: new THREE.MeshStandardMaterial({ color: 0xeebb99, roughness: 0.8 }),
+            burgerMeat: new THREE.MeshStandardMaterial({ color: 0x4a2e15, roughness: 0.9 }),
+            lollipopStick: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }),
+            lollipopCandy: new THREE.MeshStandardMaterial({ color: 0xff00ff, roughness: 0.2 }),
+            ball: new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.3, roughness: 0.2 }),
+            pill: new THREE.MeshStandardMaterial({ color: 0x00ffff, roughness: 0.4 }),
+            bubble: new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0 })
+        };
+
+        const room = new THREE.Group();
+        // Floor
+        const floorGeo = new THREE.PlaneGeometry(20, 20);
+        const floor = new THREE.Mesh(floorGeo, materials.wood);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        room.add(floor);
+        
+        // Rug
+        const rugGeo = new THREE.CylinderGeometry(3, 3, 0.05, 32);
+        const rug = new THREE.Mesh(rugGeo, materials.rug);
+        rug.position.set(0, 0.02, 0);
+        rug.receiveShadow = true;
+        room.add(rug);
+
+        // Wall (curved background to look cozy)
+        const wallGeo = new THREE.CylinderGeometry(8, 8, 10, 32, 1, true, -Math.PI, Math.PI);
+        const wall = new THREE.Mesh(wallGeo, materials.wall);
+        wall.position.y = 5;
+        wall.receiveShadow = true;
+        room.add(wall);
+        scene.add(room);
+
+        // --- Procedural 3D Pet ---
+        const petGroup = new THREE.Group();
+        
+        // Body (Capsule-like)
+        const bodyGeo = new THREE.SphereGeometry(1, 32, 32);
+        bodyGeo.scale(1, 1.2, 1);
+        const petBody = new THREE.Mesh(bodyGeo, materials.petBody);
+        petBody.position.y = 1.2;
+        petBody.castShadow = true;
+        petGroup.add(petBody);
+
+        // Eyes
+        const eyeGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const eyeL = new THREE.Mesh(eyeGeo, materials.black);
+        eyeL.position.set(-0.35, 1.4, 0.85);
+        const eyeR = new THREE.Mesh(eyeGeo, materials.black);
+        eyeR.position.set(0.35, 1.4, 0.85);
+        petGroup.add(eyeL);
+        petGroup.add(eyeR);
+
+        // Eye state (sleeping)
+        const eyeClosedGeo = new THREE.BoxGeometry(0.4, 0.05, 0.1);
+        const eyeClosedL = new THREE.Mesh(eyeClosedGeo, materials.black);
+        eyeClosedL.position.set(-0.35, 1.4, 0.86);
+        eyeClosedL.visible = false;
+        const eyeClosedR = new THREE.Mesh(eyeClosedGeo, materials.black);
+        eyeClosedR.position.set(0.35, 1.4, 0.86);
+        eyeClosedR.visible = false;
+        petGroup.add(eyeClosedL);
+        petGroup.add(eyeClosedR);
+
+        // Reference point for thought bubble (Top of head)
+        const headPoint = new THREE.Object3D();
+        headPoint.position.set(0, 2.5, 0);
+        petGroup.add(headPoint);
+
+        scene.add(petGroup);
+
+        // --- Interactive Objects Generation ---
+        let poops = [];
+        let particles = [];
+
+        function createPoop(x, z) {
+            const poopGeo = new THREE.Group();
+            const sizes = [0.4, 0.3, 0.2];
+            for(let i=0; i<3; i++) {
+                let m = new THREE.Mesh(new THREE.SphereGeometry(sizes[i], 16, 16), materials.poop);
+                m.position.y = (i * 0.25) + sizes[i]/2;
+                m.scale.y = 0.8;
+                m.castShadow = true;
+                poopGeo.add(m);
+            }
+            poopGeo.position.set(x, 0, z);
+            scene.add(poopGeo);
+            poops.push(poopGeo);
+        }
+
+        function createBurger() {
+            const burger = new THREE.Group();
+            let b1 = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16, 0, Math.PI*2, 0, Math.PI/2), materials.burgerBun);
+            b1.position.y = 0.4; b1.castShadow = true;
+            let meat = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.15, 16), materials.burgerMeat);
+            meat.position.y = 0.25; meat.castShadow = true;
+            let b2 = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.15, 16), materials.burgerBun);
+            b2.position.y = 0.1; b2.castShadow = true;
+            burger.add(b1, meat, b2);
+            return burger;
+        }
+
+        function createLollipop() {
+            const lolli = new THREE.Group();
+            let stick = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1), materials.lollipopStick);
+            stick.position.y = 0.5; stick.castShadow = true;
+            let candy = new THREE.Mesh(new THREE.SphereGeometry(0.4), materials.lollipopCandy);
+            candy.position.y = 1.2; candy.castShadow = true;
+            lolli.add(stick, candy);
+            return lolli;
+        }
+
+        function spawnObject(type) {
+            if(activeObj) scene.remove(activeObj.mesh);
+            
+            let mesh;
+            if(type === 'burger') mesh = createBurger();
+            else if (type === 'lollipop') mesh = createLollipop();
+            else if (type === 'ball') {
+                mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), materials.ball);
+                mesh.position.y = 0.5;
+                mesh.castShadow = true;
+            } else if (type === 'pill') {
+                mesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), materials.pill);
+                mesh.scale.set(1, 1.8, 1); // Stretching a sphere to create a capsule/pill shape
+                mesh.rotation.z = Math.PI/4;
+                mesh.position.y = 0.3;
+                mesh.castShadow = true;
+            }
+
+            // Spawn in front of pet, but a bit randomly on the floor
+            let angle = Math.random() * Math.PI * 2;
+            let dist = 2 + Math.random() * 2;
+            mesh.position.x = Math.cos(angle) * dist;
+            mesh.position.z = Math.sin(angle) * dist;
+            
+            // Drop animation setup
+            mesh.position.y += 3; 
+            
+            scene.add(mesh);
+            activeObj = { mesh: mesh, type: type, state: 'falling', baseY: type==='ball'?0.5:0 };
+            
+            // Trigger Pet Action
+            petState = 'moving';
+        }
+
+        function createParticles(type) {
+            let count = type === 'clean' ? 30 : 1;
+            for(let i=0; i<count; i++) {
+                let mesh;
+                if(type === 'clean') {
+                    mesh = new THREE.Mesh(new THREE.SphereGeometry(0.2 + Math.random()*0.3, 16, 16), materials.bubble);
+                    mesh.position.set((Math.random()-0.5)*8, Math.random()*2, (Math.random()-0.5)*8);
+                } else if (type === 'zzz') {
+                    // Simple Box to represent Z, scaled to look like a line, rotated... 
+                    // Actually, let's just make it float up for ZzZ using a simple white sphere as "sleep bubble"
+                    mesh = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({color: 0xffffff}));
+                    mesh.position.copy(petGroup.position);
+                    mesh.position.y += 2;
+                    mesh.position.x += (Math.random()-0.5);
+                }
+                scene.add(mesh);
+                particles.push({ mesh: mesh, type: type, life: 0, maxLife: type==='clean'?100:60 });
+            }
+        }
+
+
+        // --- UI & Interactions ---
+        const uiHUD = document.getElementById('hud');
+        const uiSplash = document.getElementById('splash-screen');
+        const uiFood = document.getElementById('food-menu');
+        const uiStatus = document.getElementById('status-menu');
+        const uiThought = document.getElementById('thought-bubble');
+        const warnBtn = document.getElementById('btn-warn');
+
+        function positionHUD() {
+            const btns = document.querySelectorAll('.hud-btn');
+            const radius = 42; // percentage of container
+            const startAngle = -Math.PI / 2; // start at top
+            btns.forEach((btn, index) => {
+                let angle = startAngle + (index / btns.length) * Math.PI * 2;
+                let x = 50 + Math.cos(angle) * radius;
+                let y = 50 + Math.sin(angle) * radius;
+                btn.style.left = `${x}%`;
+                btn.style.top = `${y}%`;
+            });
+        }
+
+        function startGame() {
+            loadGame();
+            uiSplash.classList.add('hidden');
+            uiHUD.classList.remove('hidden');
+            handleResize();
+            
+            // Recreate poops based on save
+            poops.forEach(p => scene.remove(p)); poops = [];
+            for(let i=0; i<stats.poopCount; i++) {
+                createPoop((Math.random()-0.5)*6, (Math.random()-0.5)*6);
+            }
+        }
+
+        // HUD Click Handlers
+        document.getElementById('btn-feed').onclick = () => { if(!isNight) uiFood.classList.remove('hidden'); };
+        function closeFoodMenu() { uiFood.classList.add('hidden'); }
+        function feed(type) { closeFoodMenu(); spawnObject(type); }
+
+        document.getElementById('btn-light').onclick = () => {
+            isNight = !isNight;
+            petState = isNight ? 'sleep' : 'idle';
+            ambientLight.intensity = isNight ? 0.1 : 0.6;
+            dirLight.intensity = isNight ? 0 : 0.6;
+            scene.background = new THREE.Color(isNight ? 0x0a0a2a : 0x87CEEB);
+            
+            eyeL.visible = !isNight; eyeR.visible = !isNight;
+            eyeClosedL.visible = isNight; eyeClosedR.visible = isNight;
+            
+            if(isNight) showThought('💤');
+            saveGame();
+        };
+
+        document.getElementById('btn-play').onclick = () => { if(!isNight) spawnObject('ball'); };
+        document.getElementById('btn-med').onclick = () => { if(!isNight) spawnObject('pill'); };
+        
+        document.getElementById('btn-clean').onclick = () => {
+            if(!isNight) {
+                createParticles('clean');
+                poops.forEach(p => scene.remove(p));
+                poops = [];
+                stats.poopCount = 0;
+                stats.clean = 100;
+                saveGame();
+                showThought('✨');
+            }
+        };
+
+        document.getElementById('btn-disc').onclick = () => {
+            if(!isNight) {
+                petState = 'scared';
+                setTimeout(() => { petState = 'idle'; }, 2000);
+                showThought('💢');
+            }
+        };
+
+        // Status Menu Logic
+        document.getElementById('btn-status').onclick = () => {
+            uiStatus.classList.remove('hidden');
+            updateBar('bar-hunger', stats.hunger);
+            updateBar('bar-happy', stats.happy);
+            updateBar('bar-health', stats.health);
+            updateBar('bar-energy', stats.energy);
+            updateBar('bar-clean', stats.clean);
+        };
+        function closeStatus() { uiStatus.classList.add('hidden'); }
+
+        function updateBar(id, val) {
+            const bar = document.getElementById(id);
+            bar.style.width = `${val}%`;
+            // Color mapping: 0% red (0), 100% green (120)
+            const hue = val * 1.2;
+            bar.style.backgroundColor = `hsl(${hue}, 100%, 45%)`;
+        }
+
+        // Attention / Thought Bubble
+        warnBtn.onclick = () => {
+            let lowest = 'hunger'; let min = stats.hunger;
+            if(stats.happy < min) { min = stats.happy; lowest = 'happy'; }
+            if(stats.health < min) { min = stats.health; lowest = 'health'; }
+            if(stats.energy < min) { min = stats.energy; lowest = 'energy'; }
+            if(stats.clean < min) { min = stats.clean; lowest = 'clean'; }
+
+            let icon = '🤔';
+            if(min < 30) {
+                if(lowest === 'hunger') icon = '🍔';
+                if(lowest === 'happy') icon = '🎾';
+                if(lowest === 'health') icon = '💊';
+                if(lowest === 'energy') icon = '💤';
+                if(lowest === 'clean') icon = '🧽';
+            } else {
+                icon = '❤️'; // all good
+            }
+            showThought(icon);
+        };
+
+        function showThought(icon) {
+            uiThought.innerText = icon;
+            uiThought.classList.remove('hidden');
+            clearTimeout(showThoughtTimeout);
+            showThoughtTimeout = setTimeout(() => {
+                uiThought.classList.add('hidden');
+            }, 3000);
+        }
+
+        function projectThoughtBubble() {
+            if(uiThought.classList.contains('hidden')) return;
+            
+            // Calculate 2D screen position from 3D world position
+            const vector = new THREE.Vector3();
+            headPoint.getWorldPosition(vector);
+            vector.project(camera);
+
+            // Convert to CSS coordinates (relative to the #watch-screen container)
+            const x = (vector.x * 0.5 + 0.5) * 100;
+            const y = (-(vector.y * 0.5) + 0.5) * 100;
+
+            uiThought.style.left = `${x}%`;
+            uiThought.style.top = `${y}%`;
+        }
+
+        // --- Game Loop and Animation ---
+        const clock = new THREE.Clock();
+        let time = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            time += delta;
+
+            // 1. Stats Decay Tick (every 5 seconds for visual purposes, in reality would be slower)
+            if(Math.floor(time) % 5 === 0 && Math.floor(time) !== Math.floor(time - delta)) {
+                if(!isNight) {
+                    stats.hunger = Math.max(0, stats.hunger - 0.5);
+                    stats.happy = Math.max(0, stats.happy - 0.5);
+                    stats.energy = Math.max(0, stats.energy - 0.2);
+                    if(stats.hunger < 20 || stats.poopCount > 0) stats.health = Math.max(0, stats.health - 1);
+                } else {
+                    stats.energy = Math.min(100, stats.energy + 2);
+                }
+                
+                // Random poop logic
+                if(Math.random() < 0.02 && stats.hunger > 30 && !isNight && stats.poopCount < 5) {
+                    stats.poopCount++;
+                    stats.clean -= 20;
+                    createPoop(petGroup.position.x - 1, petGroup.position.z - 1);
+                }
+
+                // Alert Button Blinking
+                const isCritical = stats.hunger < 20 || stats.happy < 20 || stats.health < 20 || stats.energy < 20 || stats.clean < 20;
+                if(isCritical) warnBtn.classList.add('alert');
+                else warnBtn.classList.remove('alert');
+
+                // Update visual sick state
+                if(stats.health < 40) petBody.material = materials.petSick;
+                else petBody.material = materials.petBody;
+
+                saveGame();
+            }
+
+            // 2. Pet Animations
+            if(petState === 'idle') {
+                // Soft breathing/bouncing
+                petBody.scale.y = 1.2 + Math.sin(time * 3) * 0.05;
+                petGroup.position.y = Math.abs(Math.sin(time * 3)) * 0.1;
+                // Look forward slowly
+                petGroup.rotation.y = Math.sin(time * 0.5) * 0.2;
+            } 
+            else if (petState === 'sleep') {
+                petBody.scale.y = 1.2 + Math.sin(time * 1.5) * 0.02; // slow breath
+                petGroup.position.y = 0;
+                if(Math.random() < 0.02) createParticles('zzz');
+            }
+            else if (petState === 'scared') {
+                petGroup.position.y = 0.5 + Math.random() * 0.2;
+                petGroup.rotation.y += 0.5;
+            }
+            else if (petState === 'moving' && activeObj) {
+                // Hop towards target
+                petGroup.lookAt(activeObj.mesh.position.x, petGroup.position.y, activeObj.mesh.position.z);
+                
+                const dist = petGroup.position.distanceTo(new THREE.Vector3(activeObj.mesh.position.x, petGroup.position.y, activeObj.mesh.position.z));
+                
+                if (dist > 1.5) {
+                    const dir = new THREE.Vector3().subVectors(activeObj.mesh.position, petGroup.position).normalize();
+                    petGroup.position.addScaledVector(dir, delta * 3);
+                    petGroup.position.y = Math.abs(Math.sin(time * 15)) * 0.5; // Hopping
+                } else {
+                    // Reached target
+                    petGroup.position.y = 0;
+                    if(activeObj.state === 'idle') {
+                        petState = 'action';
+                        setTimeout(() => {
+                            // Consume action
+                            if(activeObj.type === 'burger' || activeObj.type === 'lollipop') {
+                                stats.hunger = Math.min(100, stats.hunger + 40);
+                                showThought('😋');
+                            } else if (activeObj.type === 'pill') {
+                                stats.health = 100;
+                                showThought('💪');
+                            } else if (activeObj.type === 'ball') {
+                                stats.happy = Math.min(100, stats.happy + 30);
+                                showThought('😄');
+                            }
+                            
+                            scene.remove(activeObj.mesh);
+                            activeObj = null;
+                            petState = 'idle';
+                            saveGame();
+                        }, 1000);
+                    }
+                }
+            }
+            else if (petState === 'action') {
+                // Eating/playing animation (fast bobbing)
+                petGroup.position.y = Math.abs(Math.sin(time * 20)) * 0.3;
+            }
+
+            // 3. Object Animations
+            if(activeObj) {
+                if(activeObj.state === 'falling') {
+                    activeObj.mesh.position.y -= delta * 5;
+                    if(activeObj.mesh.position.y <= activeObj.baseY) {
+                        activeObj.mesh.position.y = activeObj.baseY;
+                        
+                        if(activeObj.type === 'ball') {
+                            activeObj.velocity = 3; // bounce
+                            activeObj.state = 'bouncing';
+                        } else {
+                            activeObj.state = 'idle'; // ready to be eaten
+                        }
+                    }
+                } else if (activeObj.state === 'bouncing') {
+                    activeObj.mesh.position.y += activeObj.velocity * delta;
+                    activeObj.velocity -= 9.8 * delta; // Gravity
+                    
+                    // Move ball forward
+                    activeObj.mesh.translateZ(delta * 2);
+                    
+                    if(activeObj.mesh.position.y <= 0.5) {
+                        activeObj.mesh.position.y = 0.5;
+                        activeObj.velocity *= -0.6; // dampening
+                        if(Math.abs(activeObj.velocity) < 0.5) activeObj.state = 'idle';
+                    }
+                }
+            }
+
+            // 4. Particles Animation
+            for(let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.life++;
+                if(p.type === 'clean') {
+                    p.mesh.position.y += delta * 2;
+                    p.mesh.position.x += Math.sin(time * 5 + p.life) * 0.05;
+                } else if (p.type === 'zzz') {
+                    p.mesh.position.y += delta;
+                    p.mesh.position.x += Math.sin(time * 2) * 0.02;
+                    p.mesh.scale.setScalar(1 + (p.life/p.maxLife));
+                    p.mesh.material.opacity = 1 - (p.life/p.maxLife);
+                    p.mesh.material.transparent = true;
+                }
+
+                if(p.life > p.maxLife) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                }
+            }
+
+            // 5. Update UI Projections
+            projectThoughtBubble();
+
+            // Render
+            renderer.render(scene, camera);
+        }
+
+        // Handle WebGL context setup cleanly
+        try {
+            handleResize();
+            animate();
+        } catch (e) {
+            console.error("WebGL error:", e);
+        }
+
+    </script>
+</body>
+</html>
